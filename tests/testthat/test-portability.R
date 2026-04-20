@@ -22,17 +22,28 @@ test_that("h3_grts output is strictly portable across OS architectures", {
   )
 
   # 2. The "Known Output"
-  expected_strings <- c(
+  expected_cell <- c(
     "872a99369ffffff",
     "872a99254ffffff",
     "872a9922bffffff",
     "872a99361ffffff",
     "872a99249ffffff"
   )
+  expected_sort_key <- c(
+    "000000000019a902",
+    "000000000021a902",
+    "000000000031a902",
+    "000000000059a902",
+    "000000000061a902"
+  )
 
   # 3. Strict assertion
   expect_equal(
-    sample_out,
-    expected_strings
+    sample_out$cell,
+    expected_cell
+  )
+  expect_equal(
+    sample_out$sort_key,
+    expected_sort_key
   )
 })
