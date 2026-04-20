@@ -23,7 +23,13 @@ cell indices covering a polygon.
 }
 
 \section{Returns}{
-A vector of H3 cell identifiers as lowercase hexadecimal strings, ordered
-by their GRTS address (i.e. the spatially balanced visiting order).
+A \code{data.frame} with two columns:
+\itemize{
+\item \code{cell}     – H3 cell identifier as a lowercase hexadecimal string.
+\item \code{sort_key} – GRTS sort key as a zero-padded 16-character lowercase hex
+string. Zero-padding ensures correct lexicographic ordering
+on the R side (e.g. for merging tile results).
+Rows are ordered by ascending sort key (i.e. GRTS visiting order).
+}
 }
 

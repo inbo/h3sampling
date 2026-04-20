@@ -8,7 +8,7 @@ h3_grts(
   wkb,
   n,
   resolution = 5,
-  containment = c("intersect", "centroid", "boundary", "covers"),
+  containment = c("centroid", "intersect", "boundary", "covers"),
   seed = 42
 )
 }
@@ -18,23 +18,32 @@ WGS84 (EPSG:4326).}
 
 \item{n}{Integer. The target number of sample locations to draw.}
 
-\item{resolution}{an integer indicating the H3 cell resolution. Must be between 0 and 15 inclusive.}
+\item{resolution}{The H3 resolution to use (0-15).}
 
-\item{containment}{default \code{"intersect"}. Must be one of \code{"intersect"},
-\code{"centroid"}, or \code{"boundary"}. See details.}
+\item{containment}{The containment mode to use. One of "centroid",
+"intersect", "boundary", or "covers".}
 
 \item{seed}{Numeric. A random seed passed to the Rust engine to ensure a
-perfectly reproducible hierarchical shuffle.}
+reproducible hierarchical shuffle.}
 }
 \value{
-A character vector of \code{n} selected H3 cell indices.
-Use \code{h3o::h3_to_points()} to convert these back to \code{sf} geometries.
+A \code{data.frame} with two columns and \code{n} rows:
+\itemize{
+\item \code{cell}     – H3 cell identifier as a lowercase hexadecimal string.
+\item \code{sort_key} – GRTS sort key as a zero-padded 16-character lowercase hex
+string. Zero-padding ensures correct lexicographic ordering
+(e.g. for merging tile results).
+Rows are ordered by ascending sort key (i.e. GRTS visiting order).
+Use \code{h3o::h3_to_points(h3o::h3_from_strings())} to \code{cell} back to \code{sf}
+geometries.
+}
 }
 \description{
 Generates a continuous Generalized Random-Tessellation Stratified (GRTS)
-sample. This function tessellates a study area polygon into an H3 hexagonal
-grid and orders the cells using a Reverse-Radix master sample key. It assumes
-equal inclusion probabilities and draws the first \code{n} elements.
+sample.
+This function tessellates a study area polygon into an H3 hexagonal grid and
+orders the cells using a Reverse-Radix master sample key.
+It assumes equal inclusion probabilities and draws the first \code{n} elements.
 }
 \examples{
 \dontrun{
@@ -48,8 +57,8 @@ nc <- st_read(system.file("shape/nc.shp", package = "sf"), quiet = TRUE)
 study_area <- nc[1, ] |> st_geometry() |> st_as_binary(EWKB = FALSE)
 
 # Draw a sample of 25 points at resolution 7
-sample_cells <- h3_grts(
-  wkb = study_area,
+sample_df <- h3_grts(
+  wkb = study_area[[1]],
   n = 25,
   resolution = 7,
   containment = "centroid",
@@ -57,10 +66,10 @@ sample_cells <- h3_grts(
 )
 
 # Convert the H3 indices back into spatial points
-sample_points <- h3_to_points(h3_from_strings(sample_cells))
+sample_df$points <- h3_to_points(h3_from_strings(sample_df$cells))
 
 # Visualize the spatially balanced sample
-plot(st_geometry(study_area), main = "H3-GRTS Sample (Ashe County)")
+plot(st_geometry(nc[1,]), main = "H3-GRTS Sample (Ashe County)")
 plot(st_geometry(sample_points), add = TRUE, pch = 20, col = "red")
 }
 }
