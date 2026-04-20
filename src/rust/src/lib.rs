@@ -50,8 +50,12 @@ const SORT_KEY_BITS_PER_RES: u32 = 3;
 ///                  2^53 lose precision — prefer seeds within that range).
 ///
 /// # Returns
-/// A vector of H3 cell identifiers as lowercase hexadecimal strings, ordered
-/// by their GRTS address (i.e. the spatially balanced visiting order).
+/// A `data.frame` with two columns:
+/// * `cell`     – H3 cell identifier as a lowercase hexadecimal string.
+/// * `sort_key` – GRTS sort key as a zero-padded 16-character lowercase hex
+///                string. Zero-padding ensures correct lexicographic ordering
+///                on the R side (e.g. for merging tile results).
+/// Rows are ordered by ascending sort key (i.e. GRTS visiting order).
 #[extendr]
 fn generate_grts_sample(
     wkb_bytes: &[u8],
@@ -59,7 +63,7 @@ fn generate_grts_sample(
     containment: &str,
     n: i32,
     global_seed: f64,
-) -> extendr_api::Result<Vec<String>> {
+) -> extendr_api::Result<Robj> {
     // NOTE: f64 → u64 truncates; seeds above 2^53 lose precision.
     let seed_u64 = global_seed as u64;
     let target_n = n as usize;
@@ -68,7 +72,7 @@ fn generate_grts_sample(
     let geometry = decode_wkb(wkb_bytes)?;
     let containment_mode = parse_containment(containment)?;
     let resolution = Resolution::try_from(res as u8)
-        .map_err(|_| Error::Other(format!("Invalid H3 resolution: {}. Must be 0–15.", res)))?;
+        .map_err(|_| Error::Other(format!("Invalid H3 resolution: {}. Must be 0-15.", res)))?;
 
     let mut tiler = TilerBuilder::new(resolution)
         .containment_mode(containment_mode)
@@ -84,7 +88,7 @@ fn generate_grts_sample(
     // 3. Stream cells through the heap reservoir ----------------------------
     // We use a max-heap of capacity `n` so we never materialise the full
     // coverage. Memory usage is O(n) regardless of total cell count.
-    // Time complexity: O(total_cells × log n).
+    // Time complexity: O(total_cells x log n).
     //
     // The heap stores (sort_key, h3_index) tuples. Because BinaryHeap is a
     // max-heap, peeking always gives us the *largest* key currently stored,
@@ -106,7 +110,7 @@ fn generate_grts_sample(
     // 4. Validate sample size -----------------------------------------------
     if total_cells < target_n {
         return Err(Error::Other(format!(
-            "Target n ({}) exceeds the number of available cells ({}).\
+            "Target n ({}) exceeds the number of available cells ({}). \
              Try a higher resolution or a larger study area.",
             target_n, total_cells
         )));
@@ -115,13 +119,30 @@ fn generate_grts_sample(
     // 5. Extract results in GRTS order --------------------------------------
     // BinaryHeap::into_sorted_vec() drains the max-heap in ascending order,
     // which corresponds directly to the GRTS visiting sequence.
-    let result: Vec<String> = heap
-        .into_sorted_vec()
-        .into_iter()
-        .map(|(_, idx)| format!("{:x}", idx))
+    //
+    // Sort keys are formatted as zero-padded 16-character hex strings so that
+    // lexicographic ordering on the R side is identical to numeric ordering of
+    // the underlying u64 values. This is essential for correct cross-tile
+    // merging: order(sort_key) in R will give the true GRTS sequence.
+    let sorted: Vec<(u64, u64)> = heap.into_sorted_vec();
+
+    let cells: Vec<String> = sorted
+        .iter()
+        .map(|&(_, idx)| format!("{:x}", idx))
         .collect();
 
-    Ok(result)
+    let sort_keys: Vec<String> = sorted
+        .iter()
+        .map(|&(key, _)| format!("{:016x}", key))
+        .collect();
+
+    // 6. Build and return a data.frame --------------------------------------
+    let df = data_frame!(
+        cell     = cells,
+        sort_key = sort_keys
+    );
+
+    Ok(df.into())
 }
 
 // ---------------------------------------------------------------------------
