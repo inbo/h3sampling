@@ -50,12 +50,30 @@ const SORT_KEY_BITS_PER_RES: u32 = 3;
 ///                  2^53 lose precision — prefer seeds within that range).
 ///
 /// # Returns
-/// A `data.frame` with two columns:
+/// A `data.frame` with three columns, ordered by ascending sort key (GRTS
+/// visiting order):
 /// * `cell`     – H3 cell identifier as a lowercase hexadecimal string.
 /// * `sort_key` – GRTS sort key as a zero-padded 16-character lowercase hex
 ///                string. Zero-padding ensures correct lexicographic ordering
 ///                on the R side (e.g. for merging tile results).
-/// Rows are ordered by ascending sort key (i.e. GRTS visiting order).
+/// * `area_m2` – True area of the cell in m². Because GRTS samples cells
+///                with equal inclusion probability (π_i = n / N), area is NOT
+///                part of the sampling mechanism. It enters only at the
+///                estimation stage: to estimate a population total T, scale
+///                each observation y_i by its cell area A_i and divide by π_i:
+///                  T_hat = Σ (y_i * A_i) / π_i
+///                For the Hájek mean estimator the π_i terms cancel and the
+///                result is simply an area-weighted average of the y_i values.
+///
+/// The returned `data.frame` also carries the following attributes which
+/// provide the quantities needed to reconstruct any design-based estimator:
+/// * `n_cells`     – Total number of H3 cells N covering the study area.
+///                   Used to compute π_i = n / N.
+/// * `sum_area_m2`– Sum of all cell areas in m² (i.e. the approximate
+///                   area of the study area as seen by the H3 grid).
+/// * `n`           – Requested sample size.
+/// * `resolution`  – H3 resolution used.
+/// * `containment` – Containment mode used.
 #[extendr]
 fn generate_grts_sample(
     wkb_bytes: &[u8],
@@ -90,21 +108,28 @@ fn generate_grts_sample(
     // coverage. Memory usage is O(n) regardless of total cell count.
     // Time complexity: O(total_cells x log n).
     //
-    // The heap stores (sort_key, h3_index) tuples. Because BinaryHeap is a
-    // max-heap, peeking always gives us the *largest* key currently stored,
-    // which is exactly what we want to evict when a smaller key arrives.
-    let mut heap: BinaryHeap<(u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
+    // The heap stores (sort_key, h3_index, area_bits) tuples. BinaryHeap is a
+    // max-heap, so peek() always returns the *largest* key — exactly what we
+    // want to evict when a smaller key arrives. area_bits is the cell area
+    // (m²) bit-cast to u64 so it can be stored without a separate Vec.
+    let mut heap: BinaryHeap<(u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
 
     // Cache permutations keyed by parent_id so siblings share a single RNG
     // initialisation instead of each independently re-seeding.
     let mut perm_cache: HashMap<u64, [u64; 7]> = HashMap::new();
 
     let mut total_cells: usize = 0;
+    // Accumulate the total area across ALL cells in the coverage. This is
+    // stored as the `sum_area_m2` attribute and is the denominator for
+    // area-weighted estimators: μ_Hajek = Σ(y_i * A_i) / Σ A_i.
+    let mut sum_all_areas: f64 = 0.0;
 
     for cell in tiler.into_coverage() {
         total_cells += 1;
+        let cell_area = cell.area_m2();
+        sum_all_areas += cell_area;
         let sort_key = compute_sort_key(cell, res, seed_u64, &base_cells, &mut perm_cache)?;
-        reservoir_push(&mut heap, target_n, sort_key, u64::from(cell));
+        reservoir_push(&mut heap, target_n, sort_key, u64::from(cell), cell_area);
     }
 
     // 4. Validate sample size -----------------------------------------------
@@ -124,25 +149,49 @@ fn generate_grts_sample(
     // lexicographic ordering on the R side is identical to numeric ordering of
     // the underlying u64 values. This is essential for correct cross-tile
     // merging: order(sort_key) in R will give the true GRTS sequence.
-    let sorted: Vec<(u64, u64)> = heap.into_sorted_vec();
+    let sorted: Vec<(u64, u64, u64)> = heap.into_sorted_vec();
 
     let cells: Vec<String> = sorted
         .iter()
-        .map(|&(_, idx)| format!("{:x}", idx))
+        .map(|&(_, idx, _)| format!("{:x}", idx))
         .collect();
 
     let sort_keys: Vec<String> = sorted
         .iter()
-        .map(|&(key, _)| format!("{:016x}", key))
+        .map(|&(key, _, _)| format!("{:016x}", key))
         .collect();
 
-    // 6. Build and return a data.frame --------------------------------------
+    // Extract per-cell areas for the sampled cells. Area enters only at the
+    // estimation stage — it is NOT part of the equal-probability sampling
+    // mechanism. π_i = n / N is constant for all cells.
+    let areas_m2: Vec<f64> = sorted
+        .iter()
+        .map(|&(_, _, area_bits)| f64::from_bits(area_bits))
+        .collect();
+
+    // 6. Build the data.frame ----------------------------------------------
     let df = data_frame!(
         cell     = cells,
-        sort_key = sort_keys
+        sort_key = sort_keys,
+        area_m2 = areas_m2
     );
 
-    Ok(df.into())
+    // 7. Attach design attributes -------------------------------------------
+    // These provide everything needed to construct any design-based estimator
+    // without baking assumptions into the returned object:
+    //
+    //   π_i  = n / n_cells           (equal for all sampled cells)
+    //   T_hat = Σ (y_i * area_m2_i) / π_i
+    //   μ_Hajek = Σ (y_i * area_m2_i / π_i) / Σ (area_m2_i / π_i)
+    //           = Σ (y_i * area_m2_i) / Σ area_m2_i   (π_i cancels)
+    let mut df_robj: Robj = df.into();
+    df_robj.set_attrib("n_cells",      total_cells as i32)?;
+    df_robj.set_attrib("sum_area_m2", sum_all_areas)?;
+    df_robj.set_attrib("n",            n)?;
+    df_robj.set_attrib("resolution",   res)?;
+    df_robj.set_attrib("containment",  containment)?;
+
+    Ok(df_robj)
 }
 
 // ---------------------------------------------------------------------------
@@ -237,15 +286,24 @@ fn compute_sort_key(
 // Heap reservoir helper
 // ---------------------------------------------------------------------------
 
-/// Push `(sort_key, h3_index)` into the reservoir heap, evicting the maximum
-/// element if the heap is already full and the new key is smaller.
+/// Push `(sort_key, h3_index, area_bits)` into the reservoir heap, evicting
+/// the maximum element if the heap is already full and the new key is smaller.
+/// Cell area is carried through so weights can be computed after the loop
+/// without re-querying h3o.
 #[inline]
-fn reservoir_push(heap: &mut BinaryHeap<(u64, u64)>, target_n: usize, sort_key: u64, h3_index: u64) {
+fn reservoir_push(
+    heap: &mut BinaryHeap<(u64, u64, u64)>,
+    target_n: usize,
+    sort_key: u64,
+    h3_index: u64,
+    cell_area: f64,
+) {
+    let area_bits = cell_area.to_bits();
     if heap.len() < target_n {
-        heap.push((sort_key, h3_index));
-    } else if let Some(&(max_key, _)) = heap.peek() {
+        heap.push((sort_key, h3_index, area_bits));
+    } else if let Some(&(max_key, _, _)) = heap.peek() {
         if sort_key < max_key {
-            heap.push((sort_key, h3_index));
+            heap.push((sort_key, h3_index, area_bits));
             heap.pop();
         }
     }

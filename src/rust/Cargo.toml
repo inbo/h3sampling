@@ -1,18 +1,18 @@
 [package]
-name = 'h3sampling'
+name = "h3sampling"
 publish = false
-version = '0.1.0'
-edition = '2021'
-rust-version = '1.65'
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
 
 [lib]
-crate-type = [ 'staticlib' ]
-name = 'h3sampling'
+crate-type = [ "staticlib" ]
+name = "h3sampling"
 
 [dependencies]
 extendr-api = "0.8.1"
-rand = "0.8"
-rand_pcg = "0.3" # <--- Add the PCG crate
+rand = "0.8.5"
+rand_pcg = "0.3.1"
 geo = "0.28"
 h3o = { version = "0.9", features = ["geo"] }
 geozero = { version = "0.13", features = ["with-geo", "with-wkb"] }
@@ -20,3 +20,7 @@ geozero = { version = "0.13", features = ["with-geo", "with-wkb"] }
 [profile.release]
 lto = true
 codegen-units = 1
+opt-level = 3
+
+[profile.dev]
+opt-level = 1

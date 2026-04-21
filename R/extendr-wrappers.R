@@ -22,12 +22,30 @@ NULL
 #'                  2^53 lose precision — prefer seeds within that range).
 #'
 #' # Returns
-#' A `data.frame` with two columns:
+#' A `data.frame` with three columns, ordered by ascending sort key (GRTS
+#' visiting order):
 #' * `cell`     – H3 cell identifier as a lowercase hexadecimal string.
 #' * `sort_key` – GRTS sort key as a zero-padded 16-character lowercase hex
 #'                string. Zero-padding ensures correct lexicographic ordering
 #'                on the R side (e.g. for merging tile results).
-#' Rows are ordered by ascending sort key (i.e. GRTS visiting order).
+#' * `area_m2` – True area of the cell in m². Because GRTS samples cells
+#'                with equal inclusion probability (π_i = n / N), area is NOT
+#'                part of the sampling mechanism. It enters only at the
+#'                estimation stage: to estimate a population total T, scale
+#'                each observation y_i by its cell area A_i and divide by π_i:
+#'                  T_hat = Σ (y_i * A_i) / π_i
+#'                For the Hájek mean estimator the π_i terms cancel and the
+#'                result is simply an area-weighted average of the y_i values.
+#'
+#' The returned `data.frame` also carries the following attributes which
+#' provide the quantities needed to reconstruct any design-based estimator:
+#' * `n_cells`     – Total number of H3 cells N covering the study area.
+#'                   Used to compute π_i = n / N.
+#' * `sum_area_m2`– Sum of all cell areas in m² (i.e. the approximate
+#'                   area of the study area as seen by the H3 grid).
+#' * `n`           – Requested sample size.
+#' * `resolution`  – H3 resolution used.
+#' * `containment` – Containment mode used.
 generate_grts_sample <- function(wkb_bytes, res, containment, n, global_seed) .Call(wrap__generate_grts_sample, wkb_bytes, res, containment, n, global_seed)
 
 

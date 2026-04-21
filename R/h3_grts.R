@@ -17,14 +17,24 @@
 #'   reproducible hierarchical shuffle.
 #'
 #'
-#' @return A `data.frame` with two columns and `n` rows:
+#' @return A `data.frame` with three columns and `n` rows, ordered by ascending
+#'  sort key (GRTS visiting order):
 #' * `cell`     – H3 cell identifier as a lowercase hexadecimal string.
 #' * `sort_key` – GRTS sort key as a zero-padded 16-character lowercase hex
 #'                string. Zero-padding ensures correct lexicographic ordering
 #'                (e.g. for merging tile results).
-#' Rows are ordered by ascending sort key (i.e. GRTS visiting order).
-#' Use `h3o::h3_to_points(h3o::h3_from_strings())` to `cell` back to `sf`
-#' geometries.
+#' * `area_m2` – True area of the cell in m².
+#' Use `h3o::h3_to_points(h3o::h3_from_strings())` to convert the `cell` strings
+#' back to `sf` geometries.
+#' The returned `data.frame` also carries the following attributes which
+#' provide the quantities needed to reconstruct design-based estimators:
+#' * `n_cells`     – Total number of H3 cells N covering the study area.
+#'                   Used to compute π_i = n / N.
+#' * `sum_area_m2`– Sum of all cell areas in m² (i.e. the approximate
+#'                   area of the study area as seen by the H3 grid).
+#' * `n`           – Requested sample size.
+#' * `resolution`  – H3 resolution used.
+#' * `containment` – Containment mode used.
 #'
 #' @export
 #'

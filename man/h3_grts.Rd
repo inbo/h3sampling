@@ -27,15 +27,25 @@ WGS84 (EPSG:4326).}
 reproducible hierarchical shuffle.}
 }
 \value{
-A \code{data.frame} with two columns and \code{n} rows:
+A \code{data.frame} with three columns and \code{n} rows, ordered by ascending
+sort key (GRTS visiting order):
 \itemize{
 \item \code{cell}     – H3 cell identifier as a lowercase hexadecimal string.
 \item \code{sort_key} – GRTS sort key as a zero-padded 16-character lowercase hex
 string. Zero-padding ensures correct lexicographic ordering
 (e.g. for merging tile results).
-Rows are ordered by ascending sort key (i.e. GRTS visiting order).
-Use \code{h3o::h3_to_points(h3o::h3_from_strings())} to \code{cell} back to \code{sf}
-geometries.
+\item \code{area_m2} – True area of the cell in m².
+Use \code{h3o::h3_to_points(h3o::h3_from_strings())} to convert the \code{cell} strings
+back to \code{sf} geometries.
+The returned \code{data.frame} also carries the following attributes which
+provide the quantities needed to reconstruct design-based estimators:
+\item \code{n_cells}     – Total number of H3 cells N covering the study area.
+Used to compute π_i = n / N.
+\item \code{sum_area_m2}– Sum of all cell areas in m² (i.e. the approximate
+area of the study area as seen by the H3 grid).
+\item \code{n}           – Requested sample size.
+\item \code{resolution}  – H3 resolution used.
+\item \code{containment} – Containment mode used.
 }
 }
 \description{
