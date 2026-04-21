@@ -9,7 +9,8 @@ h3_grts(
   n,
   resolution = 5,
   containment = c("centroid", "intersect", "boundary", "covers"),
-  seed = 42
+  seed = 42,
+  area_correction = FALSE
 )
 }
 \arguments{
@@ -25,9 +26,20 @@ WGS84 (EPSG:4326).}
 
 \item{seed}{Numeric. A random seed passed to the Rust engine to ensure a
 reproducible hierarchical shuffle.}
+
+\item{`area_correction`}{If \code{FALSE} (default), all H3 cells have equal
+inclusion probability pi_i = n / N.
+Cell areas vary by up to ~1.9x across the icosahedral projection;
+this is ignored in the sampling step but can be corrected at the estimation
+stage using the returned \code{area_km2} and \code{ip} columns.
+If \code{TRUE}, rejection sampling is applied so that each cell is accepted with
+probability area_i / max_area, making the effective inclusion probability
+proportional to area: pi_i = n * area_i / sum(area).
+A pre-pass over the coverage is required to find the maximum cell area, so
+this mode incurs roughly 2x the runtime of the default mode.}
 }
 \value{
-A \code{data.frame} with three columns and \code{n} rows, ordered by ascending
+A \code{data.frame} with four columns and \code{n} rows, ordered by ascending
 sort key (GRTS visiting order):
 \itemize{
 \item \code{cell}     – H3 cell identifier as a lowercase hexadecimal string.
@@ -35,6 +47,9 @@ sort key (GRTS visiting order):
 string. Zero-padding ensures correct lexicographic ordering
 (e.g. for merging tile results).
 \item \code{area_m2} – True area of the cell in m².
+\item \code{ip}      – Inclusion probability pi_i of the sampled cell:
+area_correction = FALSE: pi_i = n / N  (constant)
+area_correction = TRUE:  pi_i = n * area_i / sum(area)
 Use \code{h3o::h3_to_points(h3o::h3_from_strings())} to convert the \code{cell} strings
 back to \code{sf} geometries.
 The returned \code{data.frame} also carries the following attributes which
@@ -46,6 +61,7 @@ area of the study area as seen by the H3 grid).
 \item \code{n}           – Requested sample size.
 \item \code{resolution}  – H3 resolution used.
 \item \code{containment} – Containment mode used.
+\item \code{area_correction} – Whether area-proportional sampling was applied.
 }
 }
 \description{

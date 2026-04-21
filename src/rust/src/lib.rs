@@ -5,7 +5,7 @@ use geo::Geometry;
 use geozero::wkb::Wkb;
 use geozero::ToGeo;
 use rand::seq::SliceRandom;
-use rand::SeedableRng;
+use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 use std::collections::{BinaryHeap, HashMap};
 
@@ -42,38 +42,46 @@ const SORT_KEY_BITS_PER_RES: u32 = 3;
 /// cell indices covering a polygon.
 ///
 /// # Arguments
-/// * `wkb_bytes`  – Study area geometry encoded as Well-Known Binary.
-/// * `res`        – H3 resolution (0 = coarsest, 15 = finest).
-/// * `containment`– One of `"intersect"`, `"centroid"`, `"boundary"`, `"covers"`.
-/// * `n`          – Desired sample size.
-/// * `global_seed`– Reproducibility seed (passed as f64 from R; values above
-///                  2^53 lose precision — prefer seeds within that range).
+/// * `wkb_bytes`      – Study area geometry encoded as Well-Known Binary.
+/// * `res`            – H3 resolution (0 = coarsest, 15 = finest).
+/// * `containment`    – One of `"intersect"`, `"centroid"`, `"boundary"`, `"covers"`.
+/// * `n`              – Desired sample size.
+/// * `global_seed`    – Reproducibility seed (passed as f64 from R; values above
+///                      2^53 lose precision — prefer seeds within that range).
+/// * `area_correction`– If `false` (default), all H3 cells have equal inclusion
+///                      probability pi_i = n / N. Cell areas vary by up to ~1.9x
+///                      across the icosahedral projection; this is ignored in the
+///                      sampling step but can be corrected at the estimation stage
+///                      using the returned `area_m2` and `ip` columns.
+///                      If `true`, rejection sampling is applied so that each cell
+///                      is accepted with probability area_i / max_area, making the
+///                      effective inclusion probability proportional to area:
+///                      pi_i = n * area_i / sum(area). A pre-pass over the coverage
+///                      is required to find the maximum cell area, so this mode
+///                      incurs roughly 2x the runtime of the default mode.
 ///
 /// # Returns
-/// A `data.frame` with three columns, ordered by ascending sort key (GRTS
-/// visiting order):
+/// A `data.frame` with four columns ordered by ascending sort key (GRTS order):
 /// * `cell`     – H3 cell identifier as a lowercase hexadecimal string.
 /// * `sort_key` – GRTS sort key as a zero-padded 16-character lowercase hex
 ///                string. Zero-padding ensures correct lexicographic ordering
 ///                on the R side (e.g. for merging tile results).
-/// * `area_m2` – True area of the cell in m². Because GRTS samples cells
-///                with equal inclusion probability (π_i = n / N), area is NOT
-///                part of the sampling mechanism. It enters only at the
-///                estimation stage: to estimate a population total T, scale
-///                each observation y_i by its cell area A_i and divide by π_i:
-///                  T_hat = Σ (y_i * A_i) / π_i
-///                For the Hájek mean estimator the π_i terms cancel and the
-///                result is simply an area-weighted average of the y_i values.
+/// * `area_m2` – True area of the sampled cell in m².
+/// * `ip`       – Inclusion probability pi_i of the sampled cell:
+///                  area_correction = false: pi_i = n / N  (constant)
+///                  area_correction = true:  pi_i = n * area_i / sum(area)
 ///
-/// The returned `data.frame` also carries the following attributes which
-/// provide the quantities needed to reconstruct any design-based estimator:
-/// * `n_cells`     – Total number of H3 cells N covering the study area.
-///                   Used to compute π_i = n / N.
-/// * `sum_area_m2`– Sum of all cell areas in m² (i.e. the approximate
-///                   area of the study area as seen by the H3 grid).
-/// * `n`           – Requested sample size.
-/// * `resolution`  – H3 resolution used.
-/// * `containment` – Containment mode used.
+/// Design-based estimators using the returned columns:
+///   HT total:   T_hat   = sum(y_i * area_m2_i / ip_i)
+///   Hajek mean: mu_Hajek = sum(y_i * area_m2_i / ip_i) / sum(area_m2_i / ip_i)
+///
+/// The returned `data.frame` also carries the following design attributes:
+/// * `n_cells`        – Total H3 cells N covering the study area.
+/// * `sum_area_m2`    – Sum of all cell areas in m².
+/// * `n`              – Requested sample size.
+/// * `resolution`     – H3 resolution used.
+/// * `containment`    – Containment mode used.
+/// * `area_correction`– Whether area-proportional sampling was applied.
 #[extendr]
 fn generate_grts_sample(
     wkb_bytes: &[u8],
@@ -81,74 +89,109 @@ fn generate_grts_sample(
     containment: &str,
     n: i32,
     global_seed: f64,
+    area_correction: bool,
 ) -> extendr_api::Result<Robj> {
-    // NOTE: f64 → u64 truncates; seeds above 2^53 lose precision.
+    // NOTE: f64 -> u64 truncates; seeds above 2^53 lose precision.
     let seed_u64 = global_seed as u64;
     let target_n = n as usize;
 
-    // 1. Decode WKB and set up the H3 tiler --------------------------------
+    // 1. Decode WKB and resolve tiler settings ------------------------------
     let geometry = decode_wkb(wkb_bytes)?;
     let containment_mode = parse_containment(containment)?;
     let resolution = Resolution::try_from(res as u8)
         .map_err(|_| Error::Other(format!("Invalid H3 resolution: {}. Must be 0-15.", res)))?;
 
+    // 2. Area-correction pre-pass ------------------------------------------
+    // When area_correction is requested we need the maximum cell area at this
+    // resolution before the main loop so that acceptance probabilities stay
+    // in [0, 1]. The geometry is cloned to feed a second tiler.
+    //
+    // Mathematical note: the acceptance constant (max_area) cancels in the
+    // inclusion probability formula. pi_i = n * area_i / sum(area) holds for
+    // ANY constant C >= max_area used as the denominator in the acceptance
+    // step. What matters is that C >= max_area to prevent acceptance
+    // probabilities exceeding 1.
+    let max_area_m2: f64 = if area_correction {
+        let mut pre_tiler = TilerBuilder::new(resolution)
+            .containment_mode(containment_mode)
+            .build();
+        feed_geometry(&mut pre_tiler, geometry.clone())?;
+        pre_tiler
+            .into_coverage()
+            .map(|cell| cell.area_m2())
+            .fold(0.0_f64, f64::max)
+    } else {
+        0.0 // unused in the equal-probability path
+    };
+
+    // 3. Build the main tiler ----------------------------------------------
     let mut tiler = TilerBuilder::new(resolution)
         .containment_mode(containment_mode)
         .build();
-
     feed_geometry(&mut tiler, geometry)?;
 
-    // 2. Shuffle base cells (top level of the GRTS address) ----------------
+    // 4. Shuffle base cells (top level of the GRTS address) ----------------
     // This randomises which continental regions receive low sort keys,
     // ensuring global spatial balance across the entire Earth surface.
     let base_cells = shuffled_base_cells(seed_u64);
 
-    // 3. Stream cells through the heap reservoir ----------------------------
-    // We use a max-heap of capacity `n` so we never materialise the full
-    // coverage. Memory usage is O(n) regardless of total cell count.
-    // Time complexity: O(total_cells x log n).
-    //
+    // 5. Stream cells through the heap reservoir ----------------------------
     // The heap stores (sort_key, h3_index, area_bits) tuples. BinaryHeap is a
-    // max-heap, so peek() always returns the *largest* key — exactly what we
+    // max-heap so peek() always returns the *largest* key — exactly what we
     // want to evict when a smaller key arrives. area_bits is the cell area
-    // (m²) bit-cast to u64 so it can be stored without a separate Vec.
+    // (m2) bit-cast to u64 so it can be stored without a separate Vec.
     let mut heap: BinaryHeap<(u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
 
-    // Cache permutations keyed by parent_id so siblings share a single RNG
-    // initialisation instead of each independently re-seeding.
+    // Permutation cache: siblings share one RNG initialisation.
     let mut perm_cache: HashMap<u64, [u64; 7]> = HashMap::new();
 
+    // Rejection RNG — seeded independently from the permutation RNG so that
+    // the acceptance decision for one cell cannot affect the spatial ordering
+    // of any other. The XOR constant decorrelates the two streams while still
+    // being derived from the same user-facing seed.
+    let mut rejection_rng = Pcg64Mcg::seed_from_u64(seed_u64 ^ 0xf0cacc1a);
+
     let mut total_cells: usize = 0;
-    // Accumulate the total area across ALL cells in the coverage. This is
-    // stored as the `sum_area_m2` attribute and is the denominator for
-    // area-weighted estimators: μ_Hajek = Σ(y_i * A_i) / Σ A_i.
+    // Accumulate area over the FULL coverage regardless of acceptance, since
+    // sum(area) — the denominator in pi_i — refers to the whole study area.
     let mut sum_all_areas: f64 = 0.0;
 
     for cell in tiler.into_coverage() {
         total_cells += 1;
         let cell_area = cell.area_m2();
         sum_all_areas += cell_area;
+
+        // Rejection step (area_correction = true only) ---------------------
+        // Accept cell with probability area_i / max_area. This thins the
+        // coverage so that larger cells survive more often, making the
+        // effective sampling proportional to physical area.
+        if area_correction && rejection_rng.gen::<f64>() >= cell_area / max_area_m2 {
+            continue;
+        }
+
         let sort_key = compute_sort_key(cell, res, seed_u64, &base_cells, &mut perm_cache)?;
         reservoir_push(&mut heap, target_n, sort_key, u64::from(cell), cell_area);
     }
 
-    // 4. Validate sample size -----------------------------------------------
-    if total_cells < target_n {
+    // 6. Validate sample size -----------------------------------------------
+    // Check heap size rather than total_cells: with area_correction the
+    // eligible pool is smaller than the full coverage.
+    if heap.len() < target_n {
         return Err(Error::Other(format!(
-            "Target n ({}) exceeds the number of available cells ({}). \
-             Try a higher resolution or a larger study area.",
-            target_n, total_cells
+            "Target n ({}) exceeds the number of eligible cells ({}{}).              Try a higher resolution or a larger study area.",
+            target_n,
+            heap.len(),
+            if area_correction {
+                format!(" accepted from {} total after area correction", total_cells)
+            } else {
+                String::new()
+            }
         )));
     }
 
-    // 5. Extract results in GRTS order --------------------------------------
+    // 7. Extract results in GRTS order --------------------------------------
     // BinaryHeap::into_sorted_vec() drains the max-heap in ascending order,
     // which corresponds directly to the GRTS visiting sequence.
-    //
-    // Sort keys are formatted as zero-padded 16-character hex strings so that
-    // lexicographic ordering on the R side is identical to numeric ordering of
-    // the underlying u64 values. This is essential for correct cross-tile
-    // merging: order(sort_key) in R will give the true GRTS sequence.
     let sorted: Vec<(u64, u64, u64)> = heap.into_sorted_vec();
 
     let cells: Vec<String> = sorted
@@ -161,35 +204,44 @@ fn generate_grts_sample(
         .map(|&(key, _, _)| format!("{:016x}", key))
         .collect();
 
-    // Extract per-cell areas for the sampled cells. Area enters only at the
-    // estimation stage — it is NOT part of the equal-probability sampling
-    // mechanism. π_i = n / N is constant for all cells.
     let areas_m2: Vec<f64> = sorted
         .iter()
         .map(|&(_, _, area_bits)| f64::from_bits(area_bits))
         .collect();
 
-    // 6. Build the data.frame ----------------------------------------------
+    // Inclusion probabilities ----------------------------------------------
+    //   area_correction = false: pi_i = n / N  (equal for all cells)
+    //   area_correction = true:  pi_i = n * area_i / sum(area)
+    //
+    // HT estimator in both cases: T_hat = sum(y_i * area_m2_i / ip_i)
+    let n_f64 = target_n as f64;
+    let ip: Vec<f64> = if area_correction {
+        sorted
+            .iter()
+            .map(|&(_, _, area_bits)| {
+                let area = f64::from_bits(area_bits);
+                n_f64 * area / sum_all_areas
+            })
+            .collect()
+    } else {
+        vec![n_f64 / total_cells as f64; target_n]
+    };
+
+    // 8. Build the data.frame and attach design attributes ------------------
     let df = data_frame!(
         cell     = cells,
         sort_key = sort_keys,
-        area_m2 = areas_m2
+        area_m2  = areas_m2,
+        ip       = ip
     );
 
-    // 7. Attach design attributes -------------------------------------------
-    // These provide everything needed to construct any design-based estimator
-    // without baking assumptions into the returned object:
-    //
-    //   π_i  = n / n_cells           (equal for all sampled cells)
-    //   T_hat = Σ (y_i * area_m2_i) / π_i
-    //   μ_Hajek = Σ (y_i * area_m2_i / π_i) / Σ (area_m2_i / π_i)
-    //           = Σ (y_i * area_m2_i) / Σ area_m2_i   (π_i cancels)
     let mut df_robj: Robj = df.into();
-    df_robj.set_attrib("n_cells",      total_cells as i32)?;
-    df_robj.set_attrib("sum_area_m2", sum_all_areas)?;
-    df_robj.set_attrib("n",            n)?;
-    df_robj.set_attrib("resolution",   res)?;
-    df_robj.set_attrib("containment",  containment)?;
+    df_robj.set_attrib("n_cells",         total_cells as i32)?;
+    df_robj.set_attrib("sum_area_m2",    sum_all_areas)?;
+    df_robj.set_attrib("n",               n)?;
+    df_robj.set_attrib("resolution",      res)?;
+    df_robj.set_attrib("containment",     containment)?;
+    df_robj.set_attrib("area_correction", area_correction)?;
 
     Ok(df_robj)
 }

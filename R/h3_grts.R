@@ -12,18 +12,31 @@
 #' "intersect", "boundary", or "covers".
 #' @param wkb Raw byte vector representing Well-Known Binary (WKB) geometry in
 #' WGS84 (EPSG:4326).
+#' @param `area_correction` If `FALSE` (default), all H3 cells have equal
+#'  inclusion probability pi_i = n / N.
+#'  Cell areas vary by up to ~1.9x across the icosahedral projection;
+#'  this is ignored in the sampling step but can be corrected at the estimation
+#'  stage using the returned `area_km2` and `ip` columns.
+#'  If `TRUE`, rejection sampling is applied so that each cell is accepted with
+#'  probability area_i / max_area, making the effective inclusion probability
+#'  proportional to area: pi_i = n * area_i / sum(area).
+#'  A pre-pass over the coverage is required to find the maximum cell area, so
+#'  this mode incurs roughly 2x the runtime of the default mode.
 #' @param n Integer. The target number of sample locations to draw.
 #' @param seed Numeric. A random seed passed to the Rust engine to ensure a
 #'   reproducible hierarchical shuffle.
 #'
 #'
-#' @return A `data.frame` with three columns and `n` rows, ordered by ascending
+#' @return A `data.frame` with four columns and `n` rows, ordered by ascending
 #'  sort key (GRTS visiting order):
 #' * `cell`     – H3 cell identifier as a lowercase hexadecimal string.
 #' * `sort_key` – GRTS sort key as a zero-padded 16-character lowercase hex
 #'                string. Zero-padding ensures correct lexicographic ordering
 #'                (e.g. for merging tile results).
 #' * `area_m2` – True area of the cell in m².
+#' * `ip`      – Inclusion probability pi_i of the sampled cell:
+#'                  area_correction = FALSE: pi_i = n / N  (constant)
+#'                  area_correction = TRUE:  pi_i = n * area_i / sum(area)
 #' Use `h3o::h3_to_points(h3o::h3_from_strings())` to convert the `cell` strings
 #' back to `sf` geometries.
 #' The returned `data.frame` also carries the following attributes which
@@ -35,7 +48,7 @@
 #' * `n`           – Requested sample size.
 #' * `resolution`  – H3 resolution used.
 #' * `containment` – Containment mode used.
-#'
+#' * `area_correction` – Whether area-proportional sampling was applied.
 #' @export
 #'
 #' @examples
@@ -70,7 +83,8 @@ h3_grts <- function(
     n,
     resolution = 5,
     containment = c("centroid", "intersect", "boundary", "covers"),
-    seed = 42
+    seed = 42,
+    area_correction = FALSE
 ) {
   # 0. Assertions
   if (!is.raw(wkb)) {
@@ -84,8 +98,9 @@ h3_grts <- function(
     is.numeric(n),
     is.numeric(resolution),
     is.numeric(seed),
+    is.logical(area_correction) & !is.na(area_correction),
     n > 0,
-    seed > 0,
+    seed > 0 & seed < 2^53,
     resolution >= 0 & resolution <= 15
   )
   containment <- match.arg(containment)
@@ -97,7 +112,8 @@ h3_grts <- function(
     res = as.integer(resolution),
     containment = containment,
     n = as.integer(n),
-    global_seed = as.numeric(seed)
+    global_seed = as.numeric(seed),
+    area_correction = area_correction
   )
 
   return(selected_cells_str)

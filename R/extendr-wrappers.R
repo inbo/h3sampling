@@ -14,39 +14,47 @@ NULL
 #' cell indices covering a polygon.
 #'
 #' # Arguments
-#' * `wkb_bytes`  – Study area geometry encoded as Well-Known Binary.
-#' * `res`        – H3 resolution (0 = coarsest, 15 = finest).
-#' * `containment`– One of `"intersect"`, `"centroid"`, `"boundary"`, `"covers"`.
-#' * `n`          – Desired sample size.
-#' * `global_seed`– Reproducibility seed (passed as f64 from R; values above
-#'                  2^53 lose precision — prefer seeds within that range).
+#' * `wkb_bytes`      – Study area geometry encoded as Well-Known Binary.
+#' * `res`            – H3 resolution (0 = coarsest, 15 = finest).
+#' * `containment`    – One of `"intersect"`, `"centroid"`, `"boundary"`, `"covers"`.
+#' * `n`              – Desired sample size.
+#' * `global_seed`    – Reproducibility seed (passed as f64 from R; values above
+#'                      2^53 lose precision — prefer seeds within that range).
+#' * `area_correction`– If `false` (default), all H3 cells have equal inclusion
+#'                      probability pi_i = n / N. Cell areas vary by up to ~1.9x
+#'                      across the icosahedral projection; this is ignored in the
+#'                      sampling step but can be corrected at the estimation stage
+#'                      using the returned `area_m2` and `ip` columns.
+#'                      If `true`, rejection sampling is applied so that each cell
+#'                      is accepted with probability area_i / max_area, making the
+#'                      effective inclusion probability proportional to area:
+#'                      pi_i = n * area_i / sum(area). A pre-pass over the coverage
+#'                      is required to find the maximum cell area, so this mode
+#'                      incurs roughly 2x the runtime of the default mode.
 #'
 #' # Returns
-#' A `data.frame` with three columns, ordered by ascending sort key (GRTS
-#' visiting order):
+#' A `data.frame` with four columns ordered by ascending sort key (GRTS order):
 #' * `cell`     – H3 cell identifier as a lowercase hexadecimal string.
 #' * `sort_key` – GRTS sort key as a zero-padded 16-character lowercase hex
 #'                string. Zero-padding ensures correct lexicographic ordering
 #'                on the R side (e.g. for merging tile results).
-#' * `area_m2` – True area of the cell in m². Because GRTS samples cells
-#'                with equal inclusion probability (π_i = n / N), area is NOT
-#'                part of the sampling mechanism. It enters only at the
-#'                estimation stage: to estimate a population total T, scale
-#'                each observation y_i by its cell area A_i and divide by π_i:
-#'                  T_hat = Σ (y_i * A_i) / π_i
-#'                For the Hájek mean estimator the π_i terms cancel and the
-#'                result is simply an area-weighted average of the y_i values.
+#' * `area_m2` – True area of the sampled cell in m².
+#' * `ip`       – Inclusion probability pi_i of the sampled cell:
+#'                  area_correction = false: pi_i = n / N  (constant)
+#'                  area_correction = true:  pi_i = n * area_i / sum(area)
 #'
-#' The returned `data.frame` also carries the following attributes which
-#' provide the quantities needed to reconstruct any design-based estimator:
-#' * `n_cells`     – Total number of H3 cells N covering the study area.
-#'                   Used to compute π_i = n / N.
-#' * `sum_area_m2`– Sum of all cell areas in m² (i.e. the approximate
-#'                   area of the study area as seen by the H3 grid).
-#' * `n`           – Requested sample size.
-#' * `resolution`  – H3 resolution used.
-#' * `containment` – Containment mode used.
-generate_grts_sample <- function(wkb_bytes, res, containment, n, global_seed) .Call(wrap__generate_grts_sample, wkb_bytes, res, containment, n, global_seed)
+#' Design-based estimators using the returned columns:
+#'   HT total:   T_hat   = sum(y_i * area_m2_i / ip_i)
+#'   Hajek mean: mu_Hajek = sum(y_i * area_m2_i / ip_i) / sum(area_m2_i / ip_i)
+#'
+#' The returned `data.frame` also carries the following design attributes:
+#' * `n_cells`        – Total H3 cells N covering the study area.
+#' * `sum_area_m2`    – Sum of all cell areas in m².
+#' * `n`              – Requested sample size.
+#' * `resolution`     – H3 resolution used.
+#' * `containment`    – Containment mode used.
+#' * `area_correction`– Whether area-proportional sampling was applied.
+generate_grts_sample <- function(wkb_bytes, res, containment, n, global_seed, area_correction) .Call(wrap__generate_grts_sample, wkb_bytes, res, containment, n, global_seed, area_correction)
 
 
 # nolint end
