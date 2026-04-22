@@ -27,7 +27,7 @@ WGS84 (EPSG:4326).}
 \item{seed}{Numeric. A random seed passed to the Rust engine to ensure a
 reproducible hierarchical shuffle.}
 
-\item{`area_correction`}{If \code{FALSE} (default), all H3 cells have equal
+\item{area_correction}{If \code{FALSE} (default), all H3 cells have equal
 inclusion probability pi_i = n / N.
 Cell areas vary by up to ~1.9x across the icosahedral projection;
 this is ignored in the sampling step but can be corrected at the estimation
@@ -55,7 +55,7 @@ back to \code{sf} geometries.
 The returned \code{data.frame} also carries the following attributes which
 provide the quantities needed to reconstruct design-based estimators:
 \item \code{n_cells}     – Total number of H3 cells N covering the study area.
-Used to compute π_i = n / N.
+Used to compute pi_i = n / N.
 \item \code{sum_area_m2}– Sum of all cell areas in m² (i.e. the approximate
 area of the study area as seen by the H3 grid).
 \item \code{n}           – Requested sample size.
@@ -92,10 +92,11 @@ sample_df <- h3_grts(
 )
 
 # Convert the H3 indices back into spatial points
-sample_df$points <- h3_to_points(h3_from_strings(sample_df$cells))
+sample_df$geom <- h3_to_points(h3_from_strings(sample_df$cell))
+sample_df <- st_as_sf(sample_df)
 
 # Visualize the spatially balanced sample
 plot(st_geometry(nc[1,]), main = "H3-GRTS Sample (Ashe County)")
-plot(st_geometry(sample_points), add = TRUE, pch = 20, col = "red")
+plot(st_geometry(sample_df), add = TRUE, pch = 20, col = "red")
 }
 }
