@@ -50,10 +50,14 @@ string. Zero-padding ensures correct lexicographic ordering
 \item \code{ip}      – Inclusion probability pi_i of the sampled cell:
 area_correction = FALSE: pi_i = n / N  (constant)
 area_correction = TRUE:  pi_i = n * area_i / sum(area)
+}
+
 Use \code{h3o::h3_to_points(h3o::h3_from_strings())} to convert the \code{cell} strings
 back to \code{sf} geometries.
+
 The returned \code{data.frame} also carries the following attributes which
 provide the quantities needed to reconstruct design-based estimators:
+\itemize{
 \item \code{n_cells}     – Total number of H3 cells N covering the study area.
 Used to compute pi_i = n / N.
 \item \code{sum_area_m2}– Sum of all cell areas in m² (i.e. the approximate

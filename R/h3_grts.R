@@ -37,8 +37,10 @@
 #' * `ip`      – Inclusion probability pi_i of the sampled cell:
 #'                  area_correction = FALSE: pi_i = n / N  (constant)
 #'                  area_correction = TRUE:  pi_i = n * area_i / sum(area)
+#'
 #' Use `h3o::h3_to_points(h3o::h3_from_strings())` to convert the `cell` strings
 #' back to `sf` geometries.
+#'
 #' The returned `data.frame` also carries the following attributes which
 #' provide the quantities needed to reconstruct design-based estimators:
 #' * `n_cells`     – Total number of H3 cells N covering the study area.
@@ -49,6 +51,7 @@
 #' * `resolution`  – H3 resolution used.
 #' * `containment` – Containment mode used.
 #' * `area_correction` – Whether area-proportional sampling was applied.
+#'
 #' @export
 #'
 #' @examples
