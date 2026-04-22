@@ -48,9 +48,9 @@ A \code{data.frame} with four columns ordered by ascending sort key (GRTS order)
 string. Zero-padding ensures correct lexicographic ordering
 on the R side (e.g. for merging tile results).
 \item \code{area_m2} – True area of the sampled cell in m².
-\item \code{ip}       – Inclusion probability pi_i of the sampled cell:
-area_correction = false: pi_i = n / N  (constant)
-area_correction = true:  pi_i = n * area_i / sum(area)
+\item \code{ip}      – Inclusion probability ip_i of the sampled cell:
+area_correction = false: ip_i = n / N  (constant)
+area_correction = true:  ip_i = n * area_i / sum(area)
 }
 
 Design-based estimators using the returned columns:

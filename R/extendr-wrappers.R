@@ -39,9 +39,9 @@ NULL
 #'                string. Zero-padding ensures correct lexicographic ordering
 #'                on the R side (e.g. for merging tile results).
 #' * `area_m2` – True area of the sampled cell in m².
-#' * `ip`       – Inclusion probability pi_i of the sampled cell:
-#'                  area_correction = false: pi_i = n / N  (constant)
-#'                  area_correction = true:  pi_i = n * area_i / sum(area)
+#' * `ip`      – Inclusion probability ip_i of the sampled cell:
+#'                  area_correction = false: ip_i = n / N  (constant)
+#'                  area_correction = true:  ip_i = n * area_i / sum(area)
 #'
 #' Design-based estimators using the returned columns:
 #'   HT total:   T_hat   = sum(y_i * area_m2_i / ip_i)
