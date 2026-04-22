@@ -23,7 +23,7 @@ name](https://inbo.r-universe.dev/badges/:name?color=c04384)
 ![r-universe package](https://inbo.r-universe.dev/badges/h3sampling)
 [![Codecov test
 coverage](https://codecov.io/gh/inbo/h3sampling/branch/main/graph/badge.svg)](https://app.codecov.io/gh/inbo/h3sampling?branch=main)
-[![extendr](https://img.shields.io/badge/extendr-%5E0.8.1-276DC2)](https://extendr.github.io/extendr/extendr_api/)
+[![extendr](https://img.shields.io/badge/extendr-%5E0.8.1-276DC2)](https://extendr.rs/extendr/extendr_api/)
 <!-- badges: end -->
 
 # h3sampling: Spatially Balanced Sampling from the H3 Discrete Global Grid System
