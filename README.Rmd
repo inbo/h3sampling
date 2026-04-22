@@ -8,15 +8,31 @@ output: github_document
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.path = "man/figures/README-",
+  fig.path = file.path("man", "figures", "README-"),
   out.width = "100%"
 )
 ```
 
-# The `h3sampling` R package
-
 <!-- badges: start -->
+[![Project Status: Concept - Minimal or no implementation has been done yet, or the repository is only intended to be a limited example, demo, or proof-of-concept.](https://www.repostatus.org/badges/latest/concept.svg)](https://www.repostatus.org/#concept)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![MIT + file LICENSE](https://img.shields.io/badge/License-MIT_+_file_LICENSE-brightgreen)](NA)
+[![Release](https://img.shields.io/github/release/inbo/h3sampling.svg)](https://github.com/inbo/h3sampling/releases)
+![GitHub Workflow Status](https://github.com/inbo/h3sampling/actions/workflows/check_on_main.yml/badge.svg)
+![GitHub repo size](https://img.shields.io/github/repo-size/inbo/h3sampling)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/inbo/h3sampling.svg)
+![r-universe name](https://inbo.r-universe.dev/badges/:name?color=c04384)
+![r-universe package](https://inbo.r-universe.dev/badges/h3sampling)
+[![Codecov test coverage](https://codecov.io/gh/inbo/h3sampling/branch/main/graph/badge.svg)](https://app.codecov.io/gh/inbo/h3sampling?branch=main)
 <!-- badges: end -->
+
+# h3sampling: Spatially Balanced Sampling from the H3 Discrete Global Grid System
+
+[Van Calster, Hans](mailto:hans.vancalster%40inbo.be)[^aut]
+
+[^aut]: author
+
+**keywords**:  H3; GRTS; spatially balanced sampling
 
 The `h3sampling` package implements spatially balanced sampling designs which leverage the [H3](https://h3geo.org/) discrete global grid system for indexing spatial data into a hexagonal grid.
 The package currently only provides spatially balanced sampling via an adaptation of the Generalized Random Tessellation Stratified (GRTS) algorithm.
@@ -29,12 +45,18 @@ The former for brainstorming and code writing, the latter for a final critic and
 R code is kept to a bare minimum and the package has zero R dependencies.
 This results in a lightweight, cross-platform, fast and memory friendly implementation.
 
+<!-- description: start -->
+Reproducible, lean and fast spatially balanced (master) sampling leveraging the H3 discrete global grid system.
+<!-- description: end -->
+
 ## Installation
 
-To install the development version of `h3sampling`:
+You can install the development version from
+[GitHub](https://github.com/) with:
 
 ``` r
-remotes::install_github("inbo/h3sampling")
+# install.packages("remotes")
+remotes::install_git("https://github.com/inbo/h3sampling")
 ```
 
 ## Example
@@ -43,7 +65,6 @@ For an example, we extract Ashe county from the North Caroline state dataset tha
 We draw a spatially balanced sample with the aid of `h3_grts()` at resolution 7 of the [H3 resolutions](https://h3geo.org/docs/core-library/restable) system.
 This corresponds to hexagonal areas of approximately 5.16 km².
 The `h3o` package can be used to, among other things, obtain the hexagon centroid or vertices.
-
 
 ```{r example}
 library(h3sampling)
@@ -58,17 +79,18 @@ ashe_wkb <- ashe |>
   sf::st_as_binary()
 ashe_wkb <- ashe_wkb[[1]]
   
-h3_sample_cells <- h3_grts(
+h3_sample <- h3_grts(
   wkb = ashe_wkb,
   n = 20,
   resolution = 7,
   containment = "centroid",
-  seed = 123
+  seed = 123,
+  area_correction = FALSE
 )
-h3_sample_points <- h3_sample_cells |>
+h3_sample$geom_points <- h3_sample$cell |>
   h3o::h3_from_strings() |>
   h3o::h3_to_points()
-h3_sample_hexagons <- h3_sample_cells |>
+h3_sample$geom_hexagons <- h3_sample$cell |>
   h3o::h3_from_strings() |> 
   h3o::h3_to_vertexes() |>
   sf::st_cast("POLYGON")
@@ -86,7 +108,6 @@ ashe_hexagons <- h3o::h3_to_vertexes(ashe_cells[[1]]) |>
   sf::st_cast("POLYGON")
 plot(ashe$`_ogr_geometry_`)
 plot(ashe_hexagons, add = TRUE)
-plot(h3_sample_hexagons, col = "lightgreen", add = TRUE)
-plot(h3_sample_points, add = TRUE, cex = 0.3)
+plot(h3_sample$geom_hexagons, col = "lightgreen", add = TRUE)
+plot(h3_sample$geom_points, add = TRUE, cex = 0.3)
 ```
-
