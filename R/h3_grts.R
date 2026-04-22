@@ -12,7 +12,7 @@
 #' "intersect", "boundary", or "covers".
 #' @param wkb Raw byte vector representing Well-Known Binary (WKB) geometry in
 #' WGS84 (EPSG:4326).
-#' @param `area_correction` If `FALSE` (default), all H3 cells have equal
+#' @param area_correction If `FALSE` (default), all H3 cells have equal
 #'  inclusion probability pi_i = n / N.
 #'  Cell areas vary by up to ~1.9x across the icosahedral projection;
 #'  this is ignored in the sampling step but can be corrected at the estimation
@@ -42,7 +42,7 @@
 #' The returned `data.frame` also carries the following attributes which
 #' provide the quantities needed to reconstruct design-based estimators:
 #' * `n_cells`     – Total number of H3 cells N covering the study area.
-#'                   Used to compute π_i = n / N.
+#'                   Used to compute pi_i = n / N.
 #' * `sum_area_m2`– Sum of all cell areas in m² (i.e. the approximate
 #'                   area of the study area as seen by the H3 grid).
 #' * `n`           – Requested sample size.

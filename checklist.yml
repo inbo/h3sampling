@@ -22,4 +22,5 @@ spelling:
   ignore:
   - .github
   - LICENSE.md
+  - R/extendr-wrappers.R
 pak: []
