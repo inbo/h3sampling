@@ -72,11 +72,12 @@
 #' )
 #'
 #' # Convert the H3 indices back into spatial points
-#' sample_df$points <- h3_to_points(h3_from_strings(sample_df$cells))
+#' sample_df$geom <- h3_to_points(h3_from_strings(sample_df$cell))
+#' sample_df <- st_as_sf(sample_df)
 #'
 #' # Visualize the spatially balanced sample
 #' plot(st_geometry(nc[1,]), main = "H3-GRTS Sample (Ashe County)")
-#' plot(st_geometry(sample_points), add = TRUE, pch = 20, col = "red")
+#' plot(st_geometry(sample_df), add = TRUE, pch = 20, col = "red")
 #' }
 h3_grts <- function(
     wkb,
