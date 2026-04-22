@@ -41,6 +41,17 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-gnu
+
+      - name: Cache Rust workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src/rust"
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck
