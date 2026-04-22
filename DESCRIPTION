@@ -5,6 +5,7 @@ Authors@R:
     person("Hans", "Van Calster", , "hans.vancalster@inbo.be", role = c("aut", "cre"))
 Description: Reproducible, lean and fast spatially balanced (master) sampling
   leveraging the H3 discrete global grid system.
+Language: en-GB
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
