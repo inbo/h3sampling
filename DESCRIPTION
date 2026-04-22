@@ -10,12 +10,16 @@ Authors@R: c(
 Description: Reproducible, lean and fast spatially balanced (master)
     sampling leveraging the H3 discrete global grid system.
 License: MIT + file LICENSE
+URL: https://github.com/inbo/h3sampling,
+    https://inbo.github.io/h3sampling/
+BugReports: https://github.com/inbo/h3sampling/issues
 Depends: 
     R (>= 4.2)
 Suggests:
     h3o,
     sf,
     testthat (>= 3.0.0)
+Config/checklist/communities: inbo
 Config/checklist/keywords: H3; GRTS; spatially balanced sampling
 Config/rextendr/version: 0.4.2
 Config/testthat/edition: 3

@@ -1,0 +1,13 @@
+citHeader("To cite `h3sampling` in publications please use:")
+# begin checklist entry
+bibentry(
+  bibtype = "Manual",
+  title = "h3sampling: Spatially Balanced Sampling from the H3 Discrete Global Grid System. Version 0.1.0",
+  author = c(person(given = "Hans", family = "Van Calster")),
+  year = 2026,
+  url = "https://inbo.github.io/h3sampling/",
+  abstract = "Reproducible, lean and fast spatially balanced (master) sampling leveraging the H3 discrete global grid system.",
+  textVersion = "Van Calster, Hans (2026) h3sampling: Spatially Balanced Sampling from the H3 Discrete Global Grid System. Version 0.1.0. https://inbo.github.io/h3sampling/",
+  keywords = "H3; GRTS; spatially balanced sampling",
+)
+# end checklist entry
