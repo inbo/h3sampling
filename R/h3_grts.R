@@ -80,12 +80,12 @@
 #' plot(st_geometry(sample_df), add = TRUE, pch = 20, col = "red")
 #' }
 h3_grts <- function(
-    wkb,
-    n,
-    resolution = 5,
-    containment = c("centroid", "intersect", "boundary", "covers"),
-    seed = 42,
-    area_correction = FALSE
+  wkb,
+  n,
+  resolution = 5,
+  containment = c("centroid", "intersect", "boundary", "covers"),
+  seed = 42,
+  area_correction = FALSE
 ) {
   # 0. Assertions
   if (!is.raw(wkb)) {
