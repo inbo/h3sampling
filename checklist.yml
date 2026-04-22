@@ -2,7 +2,20 @@ description: Configuration file for checklist::check_pkg()
 package: yes
 allowed:
   warnings: []
-  notes: []
+  notes:
+  - motivation: Will be fixed when this goes to main branch
+    value: |-
+      checking CRAN incoming feasibility ... NOTE
+      Maintainer: 'Hans Van Calster <hans.vancalster@inbo.be>'
+
+      New submission
+
+      Found the following (possibly) invalid URLs:
+        URL: https://inbo.github.io/h3sampling/
+          From: DESCRIPTION
+                inst/CITATION
+          Status: 404
+          Message: Not Found
 required:
 - CITATION
 - DESCRIPTION
