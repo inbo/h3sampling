@@ -123,6 +123,6 @@ plot(h3_sample$geom_hexagons, col = "lightgreen", add = TRUE)
 plot(h3_sample$geom_points, add = TRUE, cex = 0.3)
 ```
 
-<img src="man/figures/README-ashe-example-1.png" alt="" width="100%" />
+<img src="man/figures/readme-ashe-example-1.png" alt="" width="100%" />
 
 [^1]: author
