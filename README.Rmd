@@ -62,7 +62,7 @@ remotes::install_git("https://github.com/inbo/h3sampling")
 ## Example
 
 For an example, we extract Ashe county from the North Caroline state dataset that ships with the `sf` package.
-We draw a spatially balanced sample with the aid of `h3_grts()` at resolution 7 of the [H3 resolutions](https://h3geo.org/docs/core-library/restable) system.
+We draw a spatially balanced sample with the aid of `h3_grts()` at resolution 7 of the [H3 resolutions](https://h3geo.org/docs/core-library/restable/) system.
 This corresponds to hexagonal areas of approximately 5.16 km².
 The `h3o` package can be used to, among other things, obtain the hexagon centroid or vertices.
 
