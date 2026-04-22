@@ -38,6 +38,10 @@ const SORT_KEY_BITS_PER_RES: u32 = 3;
 // Public entry point
 // ---------------------------------------------------------------------------
 
+/// Generate a GRTS sample (Internal C-ABI function)
+///
+/// This function is wrapped by `h3_grts()` in R and should not be
+/// called directly by the user.
 /// Generate a GRTS (Generalized Random Tessellation Stratified) sample of H3
 /// cell indices covering a polygon.
 ///
@@ -82,6 +86,7 @@ const SORT_KEY_BITS_PER_RES: u32 = 3;
 /// * `resolution`     – H3 resolution used.
 /// * `containment`    – Containment mode used.
 /// * `area_correction`– Whether area-proportional sampling was applied.
+/// @noRd
 #[extendr]
 fn generate_grts_sample(
     wkb_bytes: &[u8],

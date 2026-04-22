@@ -10,6 +10,10 @@
 #' @useDynLib h3sampling, .registration = TRUE
 NULL
 
+#' Generate a GRTS sample (Internal C-ABI function)
+#'
+#' This function is wrapped by `h3_grts()` in R and should not be
+#' called directly by the user.
 #' Generate a GRTS (Generalized Random Tessellation Stratified) sample of H3
 #' cell indices covering a polygon.
 #'
@@ -54,6 +58,7 @@ NULL
 #' * `resolution`     – H3 resolution used.
 #' * `containment`    – Containment mode used.
 #' * `area_correction`– Whether area-proportional sampling was applied.
+#' @noRd
 generate_grts_sample <- function(wkb_bytes, res, containment, n, global_seed, area_correction) .Call(wrap__generate_grts_sample, wkb_bytes, res, containment, n, global_seed, area_correction)
 
 
