@@ -112,7 +112,7 @@ h3_grts <- function(
     }
 
     res_df <- grts_sample_from_cells(
-      cell_ids_bincode = cells,
+      cells_bytes = cells,
       n = as.integer(n),
       global_seed = as.numeric(seed),
       area_correction = area_correction

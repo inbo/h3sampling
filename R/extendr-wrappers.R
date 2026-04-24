@@ -68,7 +68,7 @@ grts_sample_from_wkb <- function(wkb_bytes, res, containment, n, global_seed, ar
 
 #' Pre-computed cells -> Sample
 #' @noRd
-grts_sample_from_cells <- function(cell_ids_bincode, n, global_seed, area_correction) .Call(wrap__grts_sample_from_cells, cell_ids_bincode, n, global_seed, area_correction)
+grts_sample_from_cells <- function(cells_bytes, n, global_seed, area_correction) .Call(wrap__grts_sample_from_cells, cells_bytes, n, global_seed, area_correction)
 
 
 # nolint end

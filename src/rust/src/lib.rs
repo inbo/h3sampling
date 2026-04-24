@@ -7,7 +7,7 @@ use geozero::ToGeo;
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
 
 // ---------------------------------------------------------------------------
 // H3 bit-layout constants (from the H3 spec)
@@ -45,7 +45,7 @@ fn h3_coverage(
     wkb_bytes: &[u8],
     res: i32,
     containment: &str,
-) -> extendr_api::Result<Vec<u8>> { // <- Changed return type
+) -> extendr_api::Result<Vec<u8>> {
     let geometry = decode_wkb(wkb_bytes)?;
     let containment_mode = parse_containment(containment)?;
     let resolution = Resolution::try_from(res as u8)
@@ -56,14 +56,11 @@ fn h3_coverage(
         .build();
     feed_geometry(&mut tiler, geometry)?;
 
-    // Serialize natively to bincode via u64 to minimize overhead
-    let cells: Vec<u64> = tiler
+    // Write the raw 8-byte u64 chunks directly. No headers, no bincode!
+    let bytes: Vec<u8> = tiler
         .into_coverage()
-        .map(u64::from)
+        .flat_map(|cell| u64::from(cell).to_le_bytes())
         .collect();
-
-    let bytes = bincode::serialize(&cells)
-        .map_err(|e| Error::Other(format!("Bincode serialization failed: {}", e)))?;
 
     Ok(bytes)
 }
@@ -183,7 +180,7 @@ fn grts_sample_from_wkb(
 /// @noRd
 #[extendr]
 fn grts_sample_from_cells(
-    cell_ids_bincode: &[u8], // <- Changed parameter to accept raw bytes
+    cells_bytes: &[u8], // Pure raw bytes, no serialization headers
     n: i32,
     global_seed: f64,
     area_correction: bool,
@@ -191,26 +188,27 @@ fn grts_sample_from_cells(
     let seed_u64 = global_seed as u64;
     let target_n = n as usize;
 
-    // Deserialize bincode bytes back into u64s, then parse to CellIndex
-    let decoded_u64s: Vec<u64> = bincode::deserialize(cell_ids_bincode)
-        .map_err(|e| Error::Other(format!("Bincode deserialization failed: {}", e)))?;
-
-    let cells: Vec<CellIndex> = decoded_u64s
-        .into_iter()
-        .map(|val| CellIndex::try_from(val)
-            .map_err(|_| Error::Other(format!("Invalid H3 cell id: '{}'", val))))
-        .collect::<extendr_api::Result<Vec<_>>>()?;
-
-    if cells.is_empty() {
-        return Err(Error::Other("Provided cell_ids vector is empty.".into()));
+    // Safety check: ensure the byte slice is a perfect multiple of 8
+    if cells_bytes.is_empty() || cells_bytes.len() % 8 != 0 {
+        return Err(Error::Other("Provided cells vector is empty or malformed.".into()));
     }
 
+    // The Lazy Iterator: stream directly from index 0
+    let make_iter = || {
+        cells_bytes
+            .chunks_exact(8)
+            .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
+            .filter_map(|val| CellIndex::try_from(val).ok())
+    };
+
     // Extract resolution from the first cell
-    let res = cells[0].resolution() as i32;
+    let first_cell = make_iter().next()
+        .ok_or_else(|| Error::Other("Failed to parse first H3 cell.".into()))?;
+    let res = first_cell.resolution() as i32;
 
     // Pre-pass for max area
     let max_area_m2: f64 = if area_correction {
-        cells.iter()
+        make_iter()
             .map(|c| c.area_m2())
             .fold(0.0_f64, f64::max)
     } else {
@@ -220,7 +218,7 @@ fn grts_sample_from_cells(
     let base_cells = shuffled_base_cells(seed_u64);
 
     let (sorted, total_cells, sum_all_areas) = grts_core(
-        cells.into_iter(),
+        make_iter(),
         target_n,
         res,
         seed_u64,
@@ -229,7 +227,6 @@ fn grts_sample_from_cells(
         &base_cells,
     )?;
 
-    // For pre-computed cells, containment mode is conceptually NA or inherited
     build_result_df(sorted, total_cells, sum_all_areas, n, res, "pre-computed", area_correction)
 }
 
@@ -248,8 +245,11 @@ fn grts_core(
     base_cells: &[u64; H3_NUM_BASE_CELLS],
 ) -> extendr_api::Result<(Vec<(u64, u64, u64)>, usize, f64)> {
     let mut heap: BinaryHeap<(u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
-    let mut perm_cache: HashMap<u64, [u64; 7]> = HashMap::new();
     let mut rejection_rng = Pcg64Mcg::seed_from_u64(seed_u64 ^ 0xf0cacc1a);
+
+    // This tiny 16-element array completely replaces the HashMap!
+    // It stores (parent_id, [permutation]) for each of the 16 H3 resolutions.
+    let mut last_seen_perm = [(u64::MAX, [0u64; 7]); 16];
 
     let mut total_cells: usize = 0;
     // Accumulate area over the FULL coverage regardless of acceptance, since
@@ -269,7 +269,8 @@ fn grts_core(
             continue;
         }
 
-        let sort_key = compute_sort_key(cell, res, seed_u64, base_cells, &mut perm_cache)?;
+        // Pass the tiny array instead of the HashMap
+        let sort_key = compute_sort_key(cell, res, seed_u64, base_cells, &mut last_seen_perm)?;
         reservoir_push(&mut heap, target_n, sort_key, u64::from(cell), cell_area);
     }
 
@@ -354,7 +355,7 @@ fn compute_sort_key(
     res: i32,
     seed_u64: u64,
     base_cells: &[u64; H3_NUM_BASE_CELLS],
-    perm_cache: &mut HashMap<u64, [u64; 7]>,
+    last_seen_perm: &mut [(u64, [u64; 7]); 16],
 ) -> extendr_api::Result<u64> {
     let h3_index = u64::from(cell);
 
@@ -376,22 +377,18 @@ fn compute_sort_key(
         let parent_cell = cell.parent(parent_res)
             .ok_or_else(|| Error::Other(format!("Could not get parent at res {}", r - 1)))?;
         let parent_id = u64::from(parent_cell);
+        let r_idx = r as usize;
 
-        // Retrieve (or compute and cache) the permutation for this parent.
-        // Pentagon parents have 6 children; all others have 7.
-        let perm = perm_cache.entry(parent_id).or_insert_with(|| {
+        // Cache hit logic: only shuffle if the parent is different from the last cell we saw
+        if last_seen_perm[r_idx].0 != parent_id {
             let mut rng = Pcg64Mcg::seed_from_u64(parent_id.wrapping_add(seed_u64));
-            let mut p = [0u64, 1, 2, 3, 4, 5, 6];
-            // For pentagons the digit 1 (the "deleted" direction) is unused,
-            // but we still shuffle all 7 slots — the deleted digit will simply
-            // never be observed in practice.
-            p.shuffle(&mut rng);
-            p
-        });
+            let mut perm = [0u64, 1, 2, 3, 4, 5, 6];
+            perm.shuffle(&mut rng);
+            last_seen_perm[r_idx] = (parent_id, perm);
+        }
 
-        // Extract the raw child digit for resolution r from the H3 index.
-        // Each resolution occupies 3 bits; the most significant digit sits at
-        // bit offset 44 (= H3_BASE_CELL_SHIFT - 1 - 2).
+        let perm = last_seen_perm[r_idx].1;
+
         let h3_offset = H3_BASE_CELL_SHIFT
             .checked_sub(3 * r as u32)
             .ok_or_else(|| Error::Other("Resolution digit offset underflow".into()))?;
