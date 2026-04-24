@@ -1,28 +1,29 @@
-#' Generate a Spatially Balanced GRTS Sample using H3 (Equal Probabilities)
+#' Generate a Spatially Balanced GRTS Sample using H3
 #'
 #' @description
 #' Generates a continuous Generalized Random-Tessellation Stratified (GRTS)
 #' sample.
-#' This function tessellates a study area polygon into an H3 hexagonal grid and
-#' orders the cells using a Reverse-Radix master sample key.
-#' It assumes equal inclusion probabilities and draws the first `n` elements.
+#' The function can accept either a geometry (`wkb`) to tessellate
+#' on the fly, or a pre-computed vector of H3 cells (`cells`).
 #'
-#' @param resolution The H3 resolution to use (0-15).
-#' @param containment The containment mode to use. One of "centroid",
-#' "intersect", "boundary", or "covers".
 #' @param wkb Raw byte vector representing Well-Known Binary (WKB) geometry in
 #' WGS84 (EPSG:4326).
+#' @param cells Character vector of pre-computed H3 hex strings. If provided,
+#'  `wkb`, `resolution`, and `containment` are ignored.
+#' @param n Integer. The target number of sample locations to draw.
+#' @param resolution The H3 resolution to use (0-15). Ignored if `cells` is provided.
+#' @param containment The containment mode to use. One of "centroid",
+#'  "intersect", "boundary", or "covers". Ignored if `cells` is provided.
 #' @param area_correction If `FALSE` (default), all H3 cells have equal
 #'  inclusion probability pi_i = n / N.
 #'  Cell areas vary by up to ~1.9x across the icosahedral projection;
 #'  this is ignored in the sampling step but can be corrected at the estimation
-#'  stage using the returned `area_km2` and `ip` columns.
+#'  stage using the returned `area_m2` and `ip` columns.
 #'  If `TRUE`, rejection sampling is applied so that each cell is accepted with
 #'  probability area_i / max_area, making the effective inclusion probability
 #'  proportional to area: pi_i = n * area_i / sum(area).
 #'  A pre-pass over the coverage is required to find the maximum cell area, so
 #'  this mode incurs roughly 2x the runtime of the default mode.
-#' @param n Integer. The target number of sample locations to draw.
 #' @param seed Numeric. A random seed passed to the Rust engine to ensure a
 #'   reproducible hierarchical shuffle.
 #'
@@ -83,42 +84,56 @@
 #' plot(st_geometry(sample_df), add = TRUE, pch = 20, col = "red")
 #' }
 h3_grts <- function(
-  wkb,
-  n,
-  resolution = 5,
-  containment = c("centroid", "intersect", "boundary", "covers"),
-  seed = 42,
-  area_correction = FALSE
+    wkb = NULL,
+    cells = NULL,
+    n,
+    resolution = 5,
+    containment = c("centroid", "intersect", "boundary", "covers"),
+    seed = 42,
+    area_correction = FALSE
 ) {
   # 0. Assertions
-  if (!is.raw(wkb)) {
-    stop(
-      "Input 'wkb' must be a raw byte vector representing Well-Known Binary (WKB) geometry.\n", # nolint
-      "Hint: If you have an sf polygon 'poly', you can generate this using:\n",
-      "  wkb <- sf::st_as_binary(sf::st_combine(poly), EWKB = FALSE)[[1]]"
-    )
-  }
   stopifnot(
     is.numeric(n),
-    is.numeric(resolution),
     is.numeric(seed),
     is.logical(area_correction) & !is.na(area_correction),
     n > 0,
-    seed > 0 & seed < 2^53,
-    resolution >= 0 & resolution <= 15
+    seed > 0 & seed < 2^53
   )
+
   containment <- match.arg(containment)
 
-  # 1. Call the Rust Pipeline
-  # Rust handles H3 tessellation and GRTS sorting internally
-  selected_cells_str <- generate_grts_sample(
-    wkb_bytes = wkb,
-    res = as.integer(resolution),
-    containment = containment,
-    n = as.integer(n),
-    global_seed = as.numeric(seed),
-    area_correction = area_correction
-  )
+  # 1. Call the appropriate Rust Pipeline
+  if (!is.null(cells)) {
+    if (!is.character(cells)) {
+      stop("Input 'cells' must be a character vector of H3 hex strings.")
+    }
 
-  return(selected_cells_str)
+    res_df <- grts_sample_from_cells(
+      cell_ids = cells,
+      n = as.integer(n),
+      global_seed = as.numeric(seed),
+      area_correction = area_correction
+    )
+
+  } else if (!is.null(wkb)) {
+    if (!is.raw(wkb)) {
+      stop("Input 'wkb' must be a raw byte vector representing WKB geometry.")
+    }
+    stopifnot(is.numeric(resolution), resolution >= 0 & resolution <= 15)
+
+    res_df <- grts_sample_from_wkb(
+      wkb_bytes = wkb,
+      res = as.integer(resolution),
+      containment = containment,
+      n = as.integer(n),
+      global_seed = as.numeric(seed),
+      area_correction = area_correction
+    )
+
+  } else {
+    stop("Either 'wkb' or 'cells' must be provided.")
+  }
+
+  return(res_df)
 }

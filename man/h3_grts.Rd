@@ -2,10 +2,11 @@
 % Please edit documentation in R/h3_grts.R
 \name{h3_grts}
 \alias{h3_grts}
-\title{Generate a Spatially Balanced GRTS Sample using H3 (Equal Probabilities)}
+\title{Generate a Spatially Balanced GRTS Sample using H3}
 \usage{
 h3_grts(
-  wkb,
+  wkb = NULL,
+  cells = NULL,
   n,
   resolution = 5,
   containment = c("centroid", "intersect", "boundary", "covers"),
@@ -17,12 +18,15 @@ h3_grts(
 \item{wkb}{Raw byte vector representing Well-Known Binary (WKB) geometry in
 WGS84 (EPSG:4326).}
 
+\item{cells}{Character vector of pre-computed H3 hex strings. If provided,
+\code{wkb}, \code{resolution}, and \code{containment} are ignored.}
+
 \item{n}{Integer. The target number of sample locations to draw.}
 
-\item{resolution}{The H3 resolution to use (0-15).}
+\item{resolution}{The H3 resolution to use (0-15). Ignored if \code{cells} is provided.}
 
 \item{containment}{The containment mode to use. One of "centroid",
-"intersect", "boundary", or "covers".}
+"intersect", "boundary", or "covers". Ignored if \code{cells} is provided.}
 
 \item{seed}{Numeric. A random seed passed to the Rust engine to ensure a
 reproducible hierarchical shuffle.}
@@ -31,7 +35,7 @@ reproducible hierarchical shuffle.}
 inclusion probability pi_i = n / N.
 Cell areas vary by up to ~1.9x across the icosahedral projection;
 this is ignored in the sampling step but can be corrected at the estimation
-stage using the returned \code{area_km2} and \code{ip} columns.
+stage using the returned \code{area_m2} and \code{ip} columns.
 If \code{TRUE}, rejection sampling is applied so that each cell is accepted with
 probability area_i / max_area, making the effective inclusion probability
 proportional to area: pi_i = n * area_i / sum(area).
@@ -71,9 +75,8 @@ area of the study area as seen by the H3 grid).
 \description{
 Generates a continuous Generalized Random-Tessellation Stratified (GRTS)
 sample.
-This function tessellates a study area polygon into an H3 hexagonal grid and
-orders the cells using a Reverse-Radix master sample key.
-It assumes equal inclusion probabilities and draws the first \code{n} elements.
+The function can accept either a geometry (\code{wkb}) to tessellate
+on the fly, or a pre-computed vector of H3 cells (\code{cells}).
 }
 \examples{
 \dontrun{

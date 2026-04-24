@@ -10,8 +10,13 @@
 #' @useDynLib h3sampling, .registration = TRUE
 NULL
 
+#' geometry -> coverage
+#' @noRd
+h3_coverage <- function(wkb_bytes, res, containment) .Call(wrap__h3_coverage, wkb_bytes, res, containment)
+
 #' Generate a GRTS sample (Internal C-ABI function)
 #'
+#' Geometry -> Coverage -> Sample
 #' This function is wrapped by `h3_grts()` in R and should not be
 #' called directly by the user.
 #' Generate a GRTS (Generalized Random Tessellation Stratified) sample of H3
@@ -59,7 +64,11 @@ NULL
 #' * `containment`    – Containment mode used.
 #' * `area_correction`– Whether area-proportional sampling was applied.
 #' @noRd
-generate_grts_sample <- function(wkb_bytes, res, containment, n, global_seed, area_correction) .Call(wrap__generate_grts_sample, wkb_bytes, res, containment, n, global_seed, area_correction)
+grts_sample_from_wkb <- function(wkb_bytes, res, containment, n, global_seed, area_correction) .Call(wrap__grts_sample_from_wkb, wkb_bytes, res, containment, n, global_seed, area_correction)
+
+#' Pre-computed cells -> Sample
+#' @noRd
+grts_sample_from_cells <- function(cell_ids, n, global_seed, area_correction) .Call(wrap__grts_sample_from_cells, cell_ids, n, global_seed, area_correction)
 
 
 # nolint end
