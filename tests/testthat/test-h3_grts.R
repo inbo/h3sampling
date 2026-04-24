@@ -88,7 +88,7 @@ test_that("h3_grts validates inputs and handles missing args correctly", {
   # Target n exceeds the number of available cells in the polygon
   expect_error(
     h3_grts(wkb = test_wkb, n = 50000, resolution = 2),
-    "panicked"
+    "Target n"
   )
 })
 

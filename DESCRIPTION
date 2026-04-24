@@ -21,7 +21,7 @@ Suggests:
     testthat (>= 3.0.0)
 Config/checklist/communities: inbo
 Config/checklist/keywords: H3; GRTS; spatially balanced sampling
-Config/rextendr/version: 0.4.2
+Config/rextendr/version: 0.5.0
 Config/testthat/edition: 3
 Encoding: UTF-8
 Language: en-GB
