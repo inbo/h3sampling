@@ -7,8 +7,6 @@
 yet, or the repository is only intended to be a limited example, demo,
 or
 proof-of-concept.](https://www.repostatus.org/badges/latest/concept.svg)](https://www.repostatus.org/#concept)
-[![Lifecycle:
-experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![MIT + file
 LICENSE](https://img.shields.io/badge/License-MIT_+_file_LICENSE-brightgreen)](NA)
 [![Release](https://img.shields.io/github/release/inbo/h3sampling.svg)](https://github.com/inbo/h3sampling/releases)
