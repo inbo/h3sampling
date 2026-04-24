@@ -8,6 +8,7 @@ use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 use std::collections::{BinaryHeap, HashMap};
+use std::str::FromStr;
 
 // ---------------------------------------------------------------------------
 // H3 bit-layout constants (from the H3 spec)
@@ -35,11 +36,38 @@ const SORT_KEY_BASE_BITS: u32 = 7;
 const SORT_KEY_BITS_PER_RES: u32 = 3;
 
 // ---------------------------------------------------------------------------
-// Public entry point
+// Public entry points
 // ---------------------------------------------------------------------------
+
+/// geometry -> coverage
+/// @noRd
+#[extendr]
+fn h3_coverage(
+    wkb_bytes: &[u8],
+    res: i32,
+    containment: &str,
+) -> extendr_api::Result<Vec<String>> {
+    let geometry = decode_wkb(wkb_bytes)?;
+    let containment_mode = parse_containment(containment)?;
+    let resolution = Resolution::try_from(res as u8)
+        .map_err(|_| Error::Other(format!("Invalid H3 resolution: {}", res)))?;
+
+    let mut tiler = TilerBuilder::new(resolution)
+        .containment_mode(containment_mode)
+        .build();
+    feed_geometry(&mut tiler, geometry)?;
+
+    let cells: Vec<String> = tiler
+        .into_coverage()
+        .map(|cell| cell.to_string())
+        .collect();
+
+    Ok(cells)
+}
 
 /// Generate a GRTS sample (Internal C-ABI function)
 ///
+/// Geometry -> Coverage -> Sample
 /// This function is wrapped by `h3_grts()` in R and should not be
 /// called directly by the user.
 /// Generate a GRTS (Generalized Random Tessellation Stratified) sample of H3
@@ -88,7 +116,7 @@ const SORT_KEY_BITS_PER_RES: u32 = 3;
 /// * `area_correction`– Whether area-proportional sampling was applied.
 /// @noRd
 #[extendr]
-fn generate_grts_sample(
+fn grts_sample_from_wkb(
     wkb_bytes: &[u8],
     res: i32,
     containment: &str,
@@ -104,18 +132,9 @@ fn generate_grts_sample(
     let geometry = decode_wkb(wkb_bytes)?;
     let containment_mode = parse_containment(containment)?;
     let resolution = Resolution::try_from(res as u8)
-        .map_err(|_| Error::Other(format!("Invalid H3 resolution: {}. Must be 0-15.", res)))?;
+        .map_err(|_| Error::Other(format!("Invalid H3 resolution: {}", res)))?;
 
-    // 2. Area-correction pre-pass ------------------------------------------
-    // When area_correction is requested we need the maximum cell area at this
-    // resolution before the main loop so that acceptance probabilities stay
-    // in [0, 1]. The geometry is cloned to feed a second tiler.
-    //
-    // Mathematical note: the acceptance constant (max_area) cancels in the
-    // inclusion probability formula. pi_i = n * area_i / sum(area) holds for
-    // ANY constant C >= max_area used as the denominator in the acceptance
-    // step. What matters is that C >= max_area to prevent acceptance
-    // probabilities exceeding 1.
+    // Pre-pass for max area
     let max_area_m2: f64 = if area_correction {
         let mut pre_tiler = TilerBuilder::new(resolution)
             .containment_mode(containment_mode)
@@ -145,15 +164,86 @@ fn generate_grts_sample(
     // max-heap so peek() always returns the *largest* key — exactly what we
     // want to evict when a smaller key arrives. area_bits is the cell area
     // (m2) bit-cast to u64 so it can be stored without a separate Vec.
+    let (sorted, total_cells, sum_all_areas) = grts_core(
+        tiler.into_coverage(),
+        target_n,
+        res,
+        seed_u64,
+        area_correction,
+        max_area_m2,
+        &base_cells,
+    )?;
+
+    build_result_df(sorted, total_cells, sum_all_areas, n, res, containment, area_correction)
+}
+
+/// Pre-computed cells -> Sample
+/// @noRd
+#[extendr]
+fn grts_sample_from_cells(
+    cell_ids: Vec<String>,
+    n: i32,
+    global_seed: f64,
+    area_correction: bool,
+) -> extendr_api::Result<Robj> {
+    let seed_u64 = global_seed as u64;
+    let target_n = n as usize;
+
+    // Parse hex strings
+    let cells: Vec<CellIndex> = cell_ids
+        .iter()
+        .map(|s| CellIndex::from_str(s)
+            .map_err(|_| Error::Other(format!("Invalid H3 cell id: '{}'", s))))
+        .collect::<extendr_api::Result<Vec<_>>>()?;
+
+    if cells.is_empty() {
+        return Err(Error::Other("Provided cell_ids vector is empty.".into()));
+    }
+
+    // Extract resolution from the first cell
+    let res = cells[0].resolution() as i32;
+
+    // Pre-pass for max area
+    let max_area_m2: f64 = if area_correction {
+        cells.iter()
+            .map(|c| c.area_m2())
+            .fold(0.0_f64, f64::max)
+    } else {
+        0.0
+    };
+
+    let base_cells = shuffled_base_cells(seed_u64);
+
+    let (sorted, total_cells, sum_all_areas) = grts_core(
+        cells.into_iter(),
+        target_n,
+        res,
+        seed_u64,
+        area_correction,
+        max_area_m2,
+        &base_cells,
+    )?;
+
+    // For pre-computed cells, containment mode is conceptually NA or inherited
+    build_result_df(sorted, total_cells, sum_all_areas, n, res, "pre-computed", area_correction)
+}
+
+// ---------------------------------------------------------------------------
+// Shared Core Logic
+// ---------------------------------------------------------------------------
+
+#[inline]
+fn grts_core(
+    cell_iter: impl Iterator<Item = CellIndex>,
+    target_n: usize,
+    res: i32,
+    seed_u64: u64,
+    area_correction: bool,
+    max_area_m2: f64,
+    base_cells: &[u64; H3_NUM_BASE_CELLS],
+) -> extendr_api::Result<(Vec<(u64, u64, u64)>, usize, f64)> {
     let mut heap: BinaryHeap<(u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
-
-    // Permutation cache: siblings share one RNG initialisation.
     let mut perm_cache: HashMap<u64, [u64; 7]> = HashMap::new();
-
-    // Rejection RNG — seeded independently from the permutation RNG so that
-    // the acceptance decision for one cell cannot affect the spatial ordering
-    // of any other. The XOR constant decorrelates the two streams while still
-    // being derived from the same user-facing seed.
     let mut rejection_rng = Pcg64Mcg::seed_from_u64(seed_u64 ^ 0xf0cacc1a);
 
     let mut total_cells: usize = 0;
@@ -161,7 +251,7 @@ fn generate_grts_sample(
     // sum(area) — the denominator in pi_i — refers to the whole study area.
     let mut sum_all_areas: f64 = 0.0;
 
-    for cell in tiler.into_coverage() {
+    for cell in cell_iter {
         total_cells += 1;
         let cell_area = cell.area_m2();
         sum_all_areas += cell_area;
@@ -174,7 +264,7 @@ fn generate_grts_sample(
             continue;
         }
 
-        let sort_key = compute_sort_key(cell, res, seed_u64, &base_cells, &mut perm_cache)?;
+        let sort_key = compute_sort_key(cell, res, seed_u64, base_cells, &mut perm_cache)?;
         reservoir_push(&mut heap, target_n, sort_key, u64::from(cell), cell_area);
     }
 
@@ -183,56 +273,39 @@ fn generate_grts_sample(
     // eligible pool is smaller than the full coverage.
     if heap.len() < target_n {
         return Err(Error::Other(format!(
-            "Target n ({}) exceeds the number of eligible cells ({}{}).              Try a higher resolution or a larger study area.",
+            "Target n ({}) exceeds the number of eligible cells ({}{}). Try a higher resolution or larger area.",
             target_n,
             heap.len(),
-            if area_correction {
-                format!(" accepted from {} total after area correction", total_cells)
-            } else {
-                String::new()
-            }
+            if area_correction { format!(" accepted from {} total", total_cells) } else { String::new() }
         )));
     }
 
-    // 7. Extract results in GRTS order --------------------------------------
-    // BinaryHeap::into_sorted_vec() drains the max-heap in ascending order,
-    // which corresponds directly to the GRTS visiting sequence.
-    let sorted: Vec<(u64, u64, u64)> = heap.into_sorted_vec();
+    Ok((heap.into_sorted_vec(), total_cells, sum_all_areas))
+}
 
-    let cells: Vec<String> = sorted
-        .iter()
-        .map(|&(_, idx, _)| format!("{:x}", idx))
-        .collect();
+fn build_result_df(
+    sorted: Vec<(u64, u64, u64)>,
+    total_cells: usize,
+    sum_all_areas: f64,
+    n: i32,
+    res: i32,
+    containment: &str,
+    area_correction: bool,
+) -> extendr_api::Result<Robj> {
+    let cells: Vec<String> = sorted.iter().map(|&(_, idx, _)| format!("{:x}", idx)).collect();
+    let sort_keys: Vec<String> = sorted.iter().map(|&(key, _, _)| format!("{:016x}", key)).collect();
+    let areas_m2: Vec<f64> = sorted.iter().map(|&(_, _, area_bits)| f64::from_bits(area_bits)).collect();
 
-    let sort_keys: Vec<String> = sorted
-        .iter()
-        .map(|&(key, _, _)| format!("{:016x}", key))
-        .collect();
-
-    let areas_m2: Vec<f64> = sorted
-        .iter()
-        .map(|&(_, _, area_bits)| f64::from_bits(area_bits))
-        .collect();
-
-    // Inclusion probabilities ----------------------------------------------
-    //   area_correction = false: pi_i = n / N  (equal for all cells)
-    //   area_correction = true:  pi_i = n * area_i / sum(area)
-    //
-    // HT estimator in both cases: T_hat = sum(y_i * area_m2_i / ip_i)
-    let n_f64 = target_n as f64;
+    let n_f64 = n as f64;
     let ip: Vec<f64> = if area_correction {
-        sorted
-            .iter()
-            .map(|&(_, _, area_bits)| {
-                let area = f64::from_bits(area_bits);
-                n_f64 * area / sum_all_areas
-            })
-            .collect()
+        sorted.iter().map(|&(_, _, area_bits)| {
+            let area = f64::from_bits(area_bits);
+            n_f64 * area / sum_all_areas
+        }).collect()
     } else {
-        vec![n_f64 / total_cells as f64; target_n]
+        vec![n_f64 / total_cells as f64; n as usize]
     };
 
-    // 8. Build the data.frame and attach design attributes ------------------
     let df = data_frame!(
         cell     = cells,
         sort_key = sort_keys,
@@ -295,8 +368,7 @@ fn compute_sort_key(
         // more robust than manual bit-masking.
         let parent_res = Resolution::try_from((r - 1) as u8)
             .map_err(|_| Error::Other(format!("Invalid parent resolution: {}", r - 1)))?;
-        let parent_cell = cell
-            .parent(parent_res)
+        let parent_cell = cell.parent(parent_res)
             .ok_or_else(|| Error::Other(format!("Could not get parent at res {}", r - 1)))?;
         let parent_id = u64::from(parent_cell);
 
@@ -473,5 +545,7 @@ fn geometry_type_name<T: geo::CoordNum>(geom: &Geometry<T>) -> &'static str {
 
 extendr_module! {
     mod h3sampling;
-    fn generate_grts_sample;
+    fn h3_coverage;
+    fn grts_sample_from_wkb;
+    fn grts_sample_from_cells;
 }
