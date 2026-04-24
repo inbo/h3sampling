@@ -12,7 +12,8 @@
 #'  Use `h3_get_coverage()` to generate them.
 #'  If provided, `wkb`, `resolution`, and `containment` are ignored.
 #' @param n Integer. The target number of sample locations to draw.
-#' @param resolution The H3 resolution to use (0-15). Ignored if `cells` is provided.
+#' @param resolution The H3 resolution to use (0-15).
+#' Ignored if `cells` is provided.
 #' @param containment The containment mode to use. One of "centroid",
 #'  "intersect", "boundary", or "covers". Ignored if `cells` is provided.
 #' @param area_correction If `FALSE` (default), all H3 cells have equal
@@ -85,13 +86,13 @@
 #' plot(st_geometry(sample_df), add = TRUE, pch = 20, col = "red")
 #' }
 h3_grts <- function(
-    wkb = NULL,
-    cells = NULL,
-    n,
-    resolution = 5,
-    containment = c("centroid", "intersect", "boundary", "covers"),
-    seed = 42,
-    area_correction = FALSE
+  wkb = NULL,
+  cells = NULL,
+  n,
+  resolution = 5,
+  containment = c("centroid", "intersect", "boundary", "covers"),
+  seed = 42,
+  area_correction = FALSE
 ) {
   # 0. Assertions
   stopifnot(
@@ -111,7 +112,7 @@ h3_grts <- function(
     }
 
     res_df <- grts_sample_from_cells(
-      cell_ids = cells,
+      cell_ids_bincode = cells,
       n = as.integer(n),
       global_seed = as.numeric(seed),
       area_correction = area_correction

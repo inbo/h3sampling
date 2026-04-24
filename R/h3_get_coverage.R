@@ -13,9 +13,9 @@
 #' @return A character vector of H3 cell identifiers.
 #' @export
 h3_get_coverage <- function(
-    wkb,
-    resolution = 5,
-    containment = c("centroid", "intersect", "boundary", "covers")
+  wkb,
+  resolution = 5,
+  containment = c("centroid", "intersect", "boundary", "covers")
 ) {
   if (!is.raw(wkb)) {
     stop("Input 'wkb' must be a raw byte vector representing WKB geometry.")
