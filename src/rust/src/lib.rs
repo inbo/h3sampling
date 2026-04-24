@@ -8,7 +8,6 @@ use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 use std::collections::{BinaryHeap, HashMap};
-use std::str::FromStr;
 
 // ---------------------------------------------------------------------------
 // H3 bit-layout constants (from the H3 spec)
@@ -46,7 +45,7 @@ fn h3_coverage(
     wkb_bytes: &[u8],
     res: i32,
     containment: &str,
-) -> extendr_api::Result<Vec<String>> {
+) -> extendr_api::Result<Vec<u8>> { // <- Changed return type
     let geometry = decode_wkb(wkb_bytes)?;
     let containment_mode = parse_containment(containment)?;
     let resolution = Resolution::try_from(res as u8)
@@ -57,14 +56,17 @@ fn h3_coverage(
         .build();
     feed_geometry(&mut tiler, geometry)?;
 
-    let cells: Vec<String> = tiler
+    // Serialize natively to bincode via u64 to minimize overhead
+    let cells: Vec<u64> = tiler
         .into_coverage()
-        .map(|cell| cell.to_string())
+        .map(u64::from)
         .collect();
 
-    Ok(cells)
-}
+    let bytes = bincode::serialize(&cells)
+        .map_err(|e| Error::Other(format!("Bincode serialization failed: {}", e)))?;
 
+    Ok(bytes)
+}
 /// Generate a GRTS sample (Internal C-ABI function)
 ///
 /// Geometry -> Coverage -> Sample
@@ -181,7 +183,7 @@ fn grts_sample_from_wkb(
 /// @noRd
 #[extendr]
 fn grts_sample_from_cells(
-    cell_ids: Vec<String>,
+    cell_ids_bincode: &[u8], // <- Changed parameter to accept raw bytes
     n: i32,
     global_seed: f64,
     area_correction: bool,
@@ -189,11 +191,14 @@ fn grts_sample_from_cells(
     let seed_u64 = global_seed as u64;
     let target_n = n as usize;
 
-    // Parse hex strings
-    let cells: Vec<CellIndex> = cell_ids
-        .iter()
-        .map(|s| CellIndex::from_str(s)
-            .map_err(|_| Error::Other(format!("Invalid H3 cell id: '{}'", s))))
+    // Deserialize bincode bytes back into u64s, then parse to CellIndex
+    let decoded_u64s: Vec<u64> = bincode::deserialize(cell_ids_bincode)
+        .map_err(|e| Error::Other(format!("Bincode deserialization failed: {}", e)))?;
+
+    let cells: Vec<CellIndex> = decoded_u64s
+        .into_iter()
+        .map(|val| CellIndex::try_from(val)
+            .map_err(|_| Error::Other(format!("Invalid H3 cell id: '{}'", val))))
         .collect::<extendr_api::Result<Vec<_>>>()?;
 
     if cells.is_empty() {

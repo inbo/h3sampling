@@ -4,12 +4,13 @@
 #' Generates a continuous Generalized Random-Tessellation Stratified (GRTS)
 #' sample.
 #' The function can accept either a geometry (`wkb`) to tessellate
-#' on the fly, or a pre-computed vector of H3 cells (`cells`).
+#' on the fly, or a pre-computed raw byte vector of H3 cells (`cells`).
 #'
 #' @param wkb Raw byte vector representing Well-Known Binary (WKB) geometry in
 #' WGS84 (EPSG:4326).
-#' @param cells Character vector of pre-computed H3 hex strings. If provided,
-#'  `wkb`, `resolution`, and `containment` are ignored.
+#' @param cells Raw byte vector of pre-computed H3 cell indices.
+#'  Use `h3_get_coverage()` to generate them.
+#'  If provided, `wkb`, `resolution`, and `containment` are ignored.
 #' @param n Integer. The target number of sample locations to draw.
 #' @param resolution The H3 resolution to use (0-15). Ignored if `cells` is provided.
 #' @param containment The containment mode to use. One of "centroid",
@@ -105,8 +106,8 @@ h3_grts <- function(
 
   # 1. Call the appropriate Rust Pipeline
   if (!is.null(cells)) {
-    if (!is.character(cells)) {
-      stop("Input 'cells' must be a character vector of H3 hex strings.")
+    if (!is.raw(cells)) {
+      stop("Input 'cells' must be a raw byte vector.")
     }
 
     res_df <- grts_sample_from_cells(

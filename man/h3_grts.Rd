@@ -18,8 +18,9 @@ h3_grts(
 \item{wkb}{Raw byte vector representing Well-Known Binary (WKB) geometry in
 WGS84 (EPSG:4326).}
 
-\item{cells}{Character vector of pre-computed H3 hex strings. If provided,
-\code{wkb}, \code{resolution}, and \code{containment} are ignored.}
+\item{cells}{Raw byte vector of pre-computed H3 cell indices.
+Use \code{h3_get_coverage()} to generate them.
+If provided, \code{wkb}, \code{resolution}, and \code{containment} are ignored.}
 
 \item{n}{Integer. The target number of sample locations to draw.}
 
@@ -76,7 +77,7 @@ area of the study area as seen by the H3 grid).
 Generates a continuous Generalized Random-Tessellation Stratified (GRTS)
 sample.
 The function can accept either a geometry (\code{wkb}) to tessellate
-on the fly, or a pre-computed vector of H3 cells (\code{cells}).
+on the fly, or a pre-computed raw byte vector of H3 cells (\code{cells}).
 }
 \examples{
 \dontrun{
