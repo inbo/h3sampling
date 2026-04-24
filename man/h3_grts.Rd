@@ -24,7 +24,8 @@ If provided, \code{wkb}, \code{resolution}, and \code{containment} are ignored.}
 
 \item{n}{Integer. The target number of sample locations to draw.}
 
-\item{resolution}{The H3 resolution to use (0-15). Ignored if \code{cells} is provided.}
+\item{resolution}{The H3 resolution to use (0-15).
+Ignored if \code{cells} is provided.}
 
 \item{containment}{The containment mode to use. One of "centroid",
 "intersect", "boundary", or "covers". Ignored if \code{cells} is provided.}
