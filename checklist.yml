@@ -37,4 +37,5 @@ spelling:
   - docs/
   - LICENSE.md
   - R/extendr-wrappers.R
+  - tests/testthat/_snaps/
 pak: []
