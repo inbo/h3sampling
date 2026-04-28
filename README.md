@@ -30,10 +30,15 @@ coverage](https://codecov.io/gh/inbo/h3sampling/branch/main/graph/badge.svg)](ht
 
 **keywords**: H3; GRTS; spatially balanced sampling
 
+<!-- description: start -->
+
+Reproducible, lean and fast spatially balanced (master) sampling
+leveraging the H3 discrete global grid system. <!-- description: end -->
+
 The `h3sampling` package implements spatially balanced sampling designs
 which leverage the [H3](https://h3geo.org/) discrete global grid system
 for indexing spatial data into a hexagonal grid. The package currently
-only provides spatially balanced sampling via an adaptation of the
+provides spatially balanced sampling via an adaptation of the
 Generalized Random Tessellation Stratified (GRTS) algorithm. By making
 use of the [H3](https://h3geo.org/) global grid, the package is
 especially suitable for so-called master samples. For a given H3 grid
@@ -42,17 +47,12 @@ sorted such that consecutively ordered cells are spatially balanced
 samples for a given area on earth.
 
 The implementation is written in [`Rust`](https://rust-lang.org/) with
-the aid of `rextendr`. Large language models Google Gemini pro and
-Antropic Claude Sonnet 4.6 were used. The former for brainstorming and
-code writing, the latter for a final critic and improvements on the code
-base. R code is kept to a bare minimum and the package has zero R
-dependencies. This results in a lightweight, cross-platform, fast and
-memory friendly implementation.
-
-<!-- description: start -->
-
-Reproducible, lean and fast spatially balanced (master) sampling
-leveraging the H3 discrete global grid system. <!-- description: end -->
+the aid of `rextendr`. The package is developed with the aid of large
+language models Google Gemini pro and Antropic Claude Sonnet 4.6. The
+former for brainstorming and code writing, the latter for a final critic
+and improvements on the code base. R code is kept to a bare minimum and
+the package has zero R dependencies. This results in a lightweight,
+cross-platform, fast and memory friendly implementation.
 
 ## Installation
 
@@ -66,7 +66,7 @@ remotes::install_git("https://github.com/inbo/h3sampling")
 
 ## Example
 
-For an example, we extract Ashe county from the North Caroline state
+For an example, we extract Ashe county from the North Carolina state
 dataset that ships with the `sf` package. We draw a spatially balanced
 sample with the aid of `h3_grts()` at resolution 7 of the [H3
 resolutions](https://h3geo.org/docs/core-library/restable/) system. This
