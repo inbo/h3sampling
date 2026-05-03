@@ -34,3 +34,5 @@ renv/library
 src/Makevars
 src/Makevars.win
 src/rust/vendor
+inst/doc
+**/.quarto/

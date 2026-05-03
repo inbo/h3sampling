@@ -247,8 +247,8 @@ fn grts_core(
     let mut heap: BinaryHeap<(u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
     let mut rejection_rng = Pcg64Mcg::seed_from_u64(seed_u64 ^ 0xf0cacc1a);
 
-    // This tiny 16-element array completely replaces the HashMap!
-    // It stores (parent_id, [permutation]) for each of the 16 H3 resolutions.
+    // This 16-element array
+    // stores (parent_id, [permutation]) for each of the 16 H3 resolutions.
     let mut last_seen_perm = [(u64::MAX, [0u64; 7]); 16];
 
     let mut total_cells: usize = 0;
