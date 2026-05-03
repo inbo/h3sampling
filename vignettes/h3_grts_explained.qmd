@@ -10,12 +10,6 @@ knitr:
     comment: '#>'
 ---
 
-```{r}
-#| label: setup
-library(h3sampling)
-```
-
-
 # Summary
 
 H3 is a hierarchical hexagonal grid covering the globe.
