@@ -90,28 +90,28 @@ test_that("cells pathway: sort keys for shared cells match the WKB pathway", {
 
 test_that("h3_grts errors when neither wkb nor cells is provided", {
   expect_error(
-    h3_grts(n = 5),
+    h3_grts(n = 5, seed = 42),
     "Either 'wkb' or 'cells' must be provided"
   )
 })
 
 test_that("h3_grts errors when cells is a character vector instead of raw", {
   expect_error(
-    h3_grts(cells = c("842a993ffffffff"), n = 5),
+    h3_grts(cells = c("842a993ffffffff"), n = 5, seed = 42),
     "must be a raw byte vector"
   )
 })
 
 test_that("h3_grts errors for invalid resolution", {
   skip_if_not_installed("sf")
-  expect_error(h3_grts(create_test_wkb(), n = 3, resolution = -1))
-  expect_error(h3_grts(create_test_wkb(), n = 3, resolution = 16))
+  expect_error(h3_grts(create_test_wkb(), n = 3, resolution = -1, seed = 42))
+  expect_error(h3_grts(create_test_wkb(), n = 3, resolution = 16, seed = 42))
 })
 
 test_that("h3_grts errors for invalid containment mode", {
   skip_if_not_installed("sf")
   expect_error(
-    h3_grts(create_test_wkb(), n = 3, containment = "overlap"),
+    h3_grts(create_test_wkb(), n = 3, containment = "overlap", seed = 42),
     "should be one of"
   )
 })
@@ -120,11 +120,11 @@ test_that("h3_grts containment ordering: intersect >= centroid cells", {
   skip_if_not_installed("sf")
   wkb <- create_test_wkb()
   n_intersect <- attr(
-    h3_grts(wkb, n = 1, resolution = 4, containment = "intersect"),
+    h3_grts(wkb, n = 1, resolution = 4, containment = "intersect", seed = 42),
     "n_cells"
   )
   n_centroid <- attr(
-    h3_grts(wkb, n = 1, resolution = 4, containment = "centroid"),
+    h3_grts(wkb, n = 1, resolution = 4, containment = "centroid", seed = 42),
     "n_cells"
   )
   expect_gte(n_intersect, n_centroid)

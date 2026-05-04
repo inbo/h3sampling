@@ -39,7 +39,7 @@ test_that("n exceeding total coverage returns a clear error", {
   skip_if_not_installed("sf")
   # wkb_tiny covers very few cells; n = 50000 at res 2 will always exceed N
   expect_error(
-    h3_grts(create_test_wkb(), n = 50000, resolution = 2),
+    h3_grts(create_test_wkb(), n = 50000, resolution = 2, seed = 42),
     "Target n"
   )
 })
@@ -47,7 +47,7 @@ test_that("n exceeding total coverage returns a clear error", {
 test_that("n = -5 returns a clear error", {
   skip_if_not_installed("sf")
   expect_error(
-    h3_grts(create_test_wkb(), n = -5),
+    h3_grts(create_test_wkb(), n = -5, seed = 42),
     "n > 0 is not TRUE"
   )
 })

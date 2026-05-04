@@ -6,7 +6,8 @@
 test_that("area_correction = TRUE executes and returns a data.frame", {
   skip_if_not_installed("sf")
   out <- h3_grts(
-    wkb = create_test_wkb(), n = 10, resolution = 5, area_correction = TRUE
+    wkb = create_test_wkb(), n = 10, resolution = 5, area_correction = TRUE,
+    seed = 42
   )
   expect_s3_class(out, "data.frame")
   expect_true(attr(out, "area_correction"))
