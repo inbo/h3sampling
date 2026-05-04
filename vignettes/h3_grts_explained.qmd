@@ -27,7 +27,7 @@ At its lowest resolution (Resolution 0), H3 tiles the Earth into 122 base cells:
 The pentagons are necessary because a perfect sphere cannot be tiled using exclusively hexagons.
 To minimize distortion for spatial analysis, the grid is specifically oriented so that all 12 pentagons fall entirely within the oceans.
 
-H3 provides 15 additional [resolutions](https://h3geo.org/docs/core-library/restable) of increasing precision, with the highest resolution cells covering approximately 1 m². The hierarchical tiling results in strict parent-child relationships, which are encoded directly into the cell's ID number.
+H3 provides 15 additional [resolutions](https://h3geo.org/docs/core-library/restable/) of increasing precision, with the highest resolution cells covering approximately 1 m². The hierarchical tiling results in strict parent-child relationships, which are encoded directly into the cell's ID number.
 Every parent hexagon cell has seven hexagon children.
 Thus, when moving from resolution $k$ to $k+1$, the cell area will be approximately seven times smaller.
 
@@ -73,7 +73,7 @@ If two researchers run `h3_grts()` on overlapping but different study areas usin
 ## Example: from H3 cell to GRTS sort index
 
 To make this concrete, let's walk through exactly how an H3 cell is unpacked into its geometric address, randomized, and repacked into a GRTS sort key.
-We will use the official [H3 bit layout](https://h3geo.org/docs/core-library/h3Indexing#bit-layout-of-h3index) to decode the index.
+We will use the official [H3 bit layout](https://h3geo.org/docs/core-library/h3Indexing/#bit-layout-of-h3index) to decode the index.
 
 ### Decoding the H3 hexadecimal string
 
