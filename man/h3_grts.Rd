@@ -10,7 +10,7 @@ h3_grts(
   n,
   resolution = 5,
   containment = c("centroid", "intersect", "boundary", "covers"),
-  seed = 42,
+  seed,
   area_correction = FALSE
 )
 }
@@ -31,7 +31,8 @@ Ignored if \code{cells} is provided.}
 "intersect", "boundary", or "covers". Ignored if \code{cells} is provided.}
 
 \item{seed}{Numeric. A random seed passed to the Rust engine to ensure a
-reproducible hierarchical shuffle.}
+reproducible hierarchical shuffle. The seed must be a whole number,
+\verb{>= 0}, and \verb{< 2^53}.}
 
 \item{area_correction}{If \code{FALSE} (default), all H3 cells have equal
 inclusion probability pi_i = n / N.

@@ -27,7 +27,8 @@
 #'  A pre-pass over the coverage is required to find the maximum cell area, so
 #'  this mode incurs roughly 2x the runtime of the default mode.
 #' @param seed Numeric. A random seed passed to the Rust engine to ensure a
-#'   reproducible hierarchical shuffle.
+#'   reproducible hierarchical shuffle. The seed must be a whole number,
+#'   `>= 0`, and `< 2^53`.
 #'
 #'
 #' @return A `data.frame` with four columns and `n` rows, ordered by ascending
@@ -91,16 +92,19 @@ h3_grts <- function(
   n,
   resolution = 5,
   containment = c("centroid", "intersect", "boundary", "covers"),
-  seed = 42,
+  seed,
   area_correction = FALSE
 ) {
   # 0. Assertions
   stopifnot(
     is.numeric(n),
-    is.numeric(seed),
-    is.logical(area_correction) & !is.na(area_correction),
+    is.logical(area_correction) && !is.na(area_correction),
     n > 0,
-    seed > 0 & seed < 2^53
+    "`seed` must be a whole number, >= 0, and < 2^53." = !missing(seed) &&
+      is.numeric(seed) &&
+      seed %% 1 == 0 &&
+      seed >= 0 &&
+      seed < 2^53
   )
 
   containment <- match.arg(containment)
