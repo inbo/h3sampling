@@ -87,8 +87,8 @@
 #' plot(st_geometry(sample_df), add = TRUE, pch = 20, col = "red")
 #' }
 h3_grts <- function(
-  wkb = NULL,
-  cells = NULL,
+  wkb,
+  cells,
   n,
   resolution = 5,
   containment = c("centroid", "intersect", "boundary", "covers"),
@@ -97,23 +97,19 @@ h3_grts <- function(
 ) {
   # 0. Assertions
   stopifnot(
+    "Either 'wkb' or 'cells' must be provided, not both." =
+      xor(!missing(wkb), !missing(cells)),
     is.numeric(n),
     is.logical(area_correction) && !is.na(area_correction),
     n > 0,
-    "`seed` must be a whole number, >= 0, and < 2^53." = !missing(seed) &&
-      is.numeric(seed) &&
-      seed %% 1 == 0 &&
-      seed >= 0 &&
-      seed < 2^53
+    "`seed` must be a whole number, >= 0, and < 2^53." = is_valid_seed(seed)
   )
 
   containment <- match.arg(containment)
 
   # 1. Call the appropriate Rust Pipeline
-  if (!is.null(cells)) {
-    if (!is.raw(cells)) {
-      stop("Input 'cells' must be a raw byte vector.")
-    }
+  if (!missing(cells)) {
+    stopifnot("Input 'cells' must be a raw byte vector." = is.raw(cells))
 
     res_df <- grts_sample_from_cells(
       cells_bytes = cells,
@@ -121,25 +117,36 @@ h3_grts <- function(
       global_seed = as.numeric(seed),
       area_correction = area_correction
     )
-
-  } else if (!is.null(wkb)) {
-    if (!is.raw(wkb)) {
-      stop("Input 'wkb' must be a raw byte vector representing WKB geometry.")
-    }
-    stopifnot(is.numeric(resolution), resolution >= 0 & resolution <= 15)
-
-    res_df <- grts_sample_from_wkb(
-      wkb_bytes = wkb,
-      res = as.integer(resolution),
-      containment = containment,
-      n = as.integer(n),
-      global_seed = as.numeric(seed),
-      area_correction = area_correction
-    )
-
-  } else {
-    stop("Either 'wkb' or 'cells' must be provided.")
+    return(res_df)
   }
 
+  # wkb path
+  stopifnot(
+    "Input 'wkb' must be a raw byte vector representing WKB geometry." =
+      is.raw(wkb),
+    "`resolution` must be a whole number, >= 0, and <= 15." =
+      is_valid_resolution(resolution)
+  )
+
+  res_df <- grts_sample_from_wkb(
+    wkb_bytes = wkb,
+    res = as.integer(resolution),
+    containment = containment,
+    n = as.integer(n),
+    global_seed = as.numeric(seed),
+    area_correction = area_correction
+  )
   return(res_df)
+}
+
+is_valid_resolution <- function(resolution) {
+  is.numeric(resolution) &&
+    resolution %% 1 == 0 &&
+    resolution >= 0 &&
+    resolution <= 15
+}
+
+is_valid_seed <- function(seed) {
+  !missing(seed) &&
+    is.numeric(seed) && seed %% 1 == 0 && seed >= 0 && seed < 2^53
 }

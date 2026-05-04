@@ -5,8 +5,8 @@
 \title{Generate a Spatially Balanced GRTS Sample using H3}
 \usage{
 h3_grts(
-  wkb = NULL,
-  cells = NULL,
+  wkb,
+  cells,
   n,
   resolution = 5,
   containment = c("centroid", "intersect", "boundary", "covers"),
