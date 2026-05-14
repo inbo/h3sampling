@@ -5,7 +5,7 @@ use geozero::ToGeo;
 use h3o::geom::{ContainmentMode, TilerBuilder};
 use h3o::{CellIndex, Resolution};
 use rand::seq::SliceRandom;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand_pcg::Pcg64Mcg;
 use std::collections::BinaryHeap;
 
