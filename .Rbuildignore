@@ -23,3 +23,5 @@
 ^src/rust/vendor$
 ^vignettes/*_files$
 ^vignettes/\.quarto$
+^\.positai$
+^\.claude$

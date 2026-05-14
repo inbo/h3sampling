@@ -36,3 +36,4 @@ src/Makevars.win
 src/rust/vendor
 inst/doc
 **/.quarto/
+.positai
