@@ -133,32 +133,18 @@ fn grts_sample_from_wkb(
     let resolution = Resolution::try_from(res as u8)
         .map_err(|_| Error::Other(format!("Invalid H3 resolution: {}", res)))?;
 
-    // Pre-pass for max area
-    let max_area_m2: f64 = if area_correction {
-        let mut pre_tiler = TilerBuilder::new(resolution)
-            .containment_mode(containment_mode)
-            .build();
-        feed_geometry(&mut pre_tiler, geometry.clone())?;
-        pre_tiler
-            .into_coverage()
-            .map(|cell| cell.area_m2())
-            .fold(0.0_f64, f64::max)
-    } else {
-        0.0 // unused in the equal-probability path
-    };
-
-    // 3. Build the main tiler ----------------------------------------------
+    // 2. Build the main tiler ----------------------------------------------
     let mut tiler = TilerBuilder::new(resolution)
         .containment_mode(containment_mode)
         .build();
     feed_geometry(&mut tiler, geometry)?;
 
-    // 4. Shuffle base cells (top level of the GRTS address) ----------------
+    // 3. Shuffle base cells (top level of the GRTS address) ----------------
     // This randomises which continental regions receive low sort keys,
     // ensuring global spatial balance across the entire Earth surface.
     let base_cells = shuffled_base_cells(seed_u64);
 
-    // 5. Stream cells through the heap reservoir ----------------------------
+    // 4. Stream cells through the heap reservoir ----------------------------
     // The heap stores (sort_key, h3_index, area_bits) tuples. BinaryHeap is a
     // max-heap so peek() always returns the *largest* key — exactly what we
     // want to evict when a smaller key arrives. area_bits is the cell area
@@ -169,7 +155,6 @@ fn grts_sample_from_wkb(
         res,
         seed_u64,
         area_correction,
-        max_area_m2,
         &base_cells,
     )?;
 
@@ -206,15 +191,6 @@ fn grts_sample_from_cells(
         .ok_or_else(|| Error::Other("Failed to parse first H3 cell.".into()))?;
     let res = first_cell.resolution() as i32;
 
-    // Pre-pass for max area
-    let max_area_m2: f64 = if area_correction {
-        make_iter()
-            .map(|c| c.area_m2())
-            .fold(0.0_f64, f64::max)
-    } else {
-        0.0
-    };
-
     let base_cells = shuffled_base_cells(seed_u64);
 
     let (sorted, total_cells, sum_all_areas) = grts_core(
@@ -223,7 +199,6 @@ fn grts_sample_from_cells(
         res,
         seed_u64,
         area_correction,
-        max_area_m2,
         &base_cells,
     )?;
 
@@ -241,11 +216,17 @@ fn grts_core(
     res: i32,
     seed_u64: u64,
     area_correction: bool,
-    max_area_m2: f64,
     base_cells: &[u64; H3_NUM_BASE_CELLS],
 ) -> extendr_api::Result<(Vec<(u64, u64, u64)>, usize, f64)> {
+    // Heap tuple: (effective_key_bits, h3_index, area_bits)
+    //
+    // effective_key_bits is f64::to_bits(effective_key), where:
+    //   area_correction = false: effective_key = sort_key as f64
+    //   area_correction = true:  effective_key = sort_key as f64 / cell_area
+    //
+    // For all positive finite f64, to_bits() preserves order, so the
+    // max-heap correctly evicts the cell with the largest effective key.
     let mut heap: BinaryHeap<(u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
-    let mut rejection_rng = Pcg64Mcg::seed_from_u64(seed_u64 ^ 0xf0cacc1a);
 
     // This 16-element array
     // stores (parent_id, [permutation]) for each of the 16 H3 resolutions.
@@ -261,20 +242,42 @@ fn grts_core(
         let cell_area = cell.area_m2();
         sum_all_areas += cell_area;
 
-        // Rejection step (area_correction = true only) ---------------------
-        // Accept cell with probability area_i / max_area. This thins the
-        // coverage so that larger cells survive more often, making the
-        // effective sampling proportional to physical area.
-        if area_correction && rejection_rng.gen::<f64>() >= cell_area / max_area_m2 {
-            continue;
-        }
+        // Pass the tiny array
+        let sort_key = compute_sort_key(
+        cell, res, seed_u64, base_cells, &mut last_seen_perm
+        )?;
 
-        // Pass the tiny array instead of the HashMap
-        let sort_key = compute_sort_key(cell, res, seed_u64, base_cells, &mut last_seen_perm)?;
-        reservoir_push(&mut heap, target_n, sort_key, u64::from(cell), cell_area);
+        // Compute the effective key used for heap comparison.
+        //
+        // Equal probability: sort_key as f64 — identical ordering to the
+        //   original u64 sort_key for all keys < 2^53, which holds up to
+        //   res 15 (max key = 2^52, exactly representable).
+        //
+        // Proportional: sort_key as f64 / cell_area — cells with larger
+        //   area get smaller effective keys and are thus more competitive.
+        //   The constant factor (sum_area / n) cancels in all comparisons
+        //   and need not be computed here.
+        let effective_key: f64 = if area_correction {
+            sort_key as f64 / cell_area
+        } else {
+            sort_key as f64
+        };
+
+        // to_bits() is safe here: effective_key is always positive and
+        // finite (sort_key >= 0, cell_area > 0). For positive finite f64,
+        // bit order == value order.
+        let effective_key_bits = effective_key.to_bits();
+
+        reservoir_push(
+            &mut heap,
+            target_n,
+            effective_key_bits,
+            u64::from(cell),
+            cell_area,
+        );
     }
 
-    // 6. Validate sample size -----------------------------------------------
+    // Validate sample size -----------------------------------------------
     // Check heap size rather than total_cells: with area_correction the
     // eligible pool is smaller than the full coverage.
     if heap.len() < target_n {
