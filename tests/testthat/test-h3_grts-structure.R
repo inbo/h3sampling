@@ -10,7 +10,10 @@ test_that("h3_grts returns a data.frame with correct columns", {
   skip_if_not_installed("sf")
   result <- h3_grts(create_test_wkb(), n = 5, resolution = 4, seed = 42)
   expect_s3_class(result, "data.frame")
-  expect_equal(names(result), c("cell", "sort_key", "area_m2", "ip"))
+  expect_equal(
+    names(result),
+    c("cell", "sort_key", "effective_key", "area_m2", "ip")
+  )
 })
 
 test_that("h3_grts columns have correct types", {

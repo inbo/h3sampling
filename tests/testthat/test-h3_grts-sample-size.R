@@ -11,7 +11,10 @@ test_that("n = 1 returns exactly one row with all required columns", {
   skip_if_not_installed("sf")
   result <- h3_grts(create_test_wkb(), n = 1, resolution = 4, seed = 42)
   expect_equal(nrow(result), 1L)
-  expect_equal(names(result), c("cell", "sort_key", "area_m2", "ip"))
+  expect_equal(
+    names(result),
+    c("cell", "sort_key", "effective_key", "area_m2", "ip")
+  )
 })
 
 test_that("n equal to total coverage returns all cells in sort_key order", {

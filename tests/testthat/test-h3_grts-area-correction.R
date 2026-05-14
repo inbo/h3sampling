@@ -1,5 +1,6 @@
 # test-h3_grts-area-correction.R
-# Tests specific to the area_correction = TRUE path (rejection sampling).
+# Tests specific to the area_correction = TRUE path
+# (sequential poisson sampling).
 # Tests that are shared between modes (ip formula, reproducibility) live in
 # test-h3_grts-ip.R and test-h3_grts-reproducibility.R respectively.
 
