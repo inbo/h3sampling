@@ -17,7 +17,7 @@ path = 'document.rs'
 extendr-api = '0.9.0'
 rand = { version = '0.8.5', default-features = false }
 rand_pcg = '0.3.1'
-geo = '0.28'
+geo = '0.32'
 h3o = { version = '0.9', features = ['geo'] }
 wkb = '0.9'
 geo-traits = { version = '0.3', features = ['geo-types'] }
