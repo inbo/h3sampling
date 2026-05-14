@@ -1,9 +1,9 @@
 use extendr_api::prelude::*;
-use h3o::{CellIndex, Resolution};
-use h3o::geom::{TilerBuilder, ContainmentMode};
 use geo::Geometry;
 use geozero::wkb::Wkb;
 use geozero::ToGeo;
+use h3o::geom::{ContainmentMode, TilerBuilder};
+use h3o::{CellIndex, Resolution};
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -41,11 +41,7 @@ const SORT_KEY_BITS_PER_RES: u32 = 3;
 /// geometry -> coverage
 /// @noRd
 #[extendr]
-fn h3_coverage(
-    wkb_bytes: &[u8],
-    res: i32,
-    containment: &str,
-) -> extendr_api::Result<Vec<u8>> {
+fn h3_coverage(wkb_bytes: &[u8], res: i32, containment: &str) -> extendr_api::Result<Vec<u8>> {
     let geometry = decode_wkb(wkb_bytes)?;
     let containment_mode = parse_containment(containment)?;
     let resolution = Resolution::try_from(res as u8)
@@ -158,7 +154,15 @@ fn grts_sample_from_wkb(
         &base_cells,
     )?;
 
-    build_result_df(sorted, total_cells, sum_all_areas, n, res, containment, area_correction)
+    build_result_df(
+        sorted,
+        total_cells,
+        sum_all_areas,
+        n,
+        res,
+        containment,
+        area_correction,
+    )
 }
 
 /// Pre-computed cells -> Sample
@@ -175,7 +179,9 @@ fn grts_sample_from_cells(
 
     // Safety check: ensure the byte slice is a perfect multiple of 8
     if cells_bytes.is_empty() || cells_bytes.len() % 8 != 0 {
-        return Err(Error::Other("Provided cells vector is empty or malformed.".into()));
+        return Err(Error::Other(
+            "Provided cells vector is empty or malformed.".into(),
+        ));
     }
 
     // The Lazy Iterator: stream directly from index 0
@@ -187,7 +193,8 @@ fn grts_sample_from_cells(
     };
 
     // Extract resolution from the first cell
-    let first_cell = make_iter().next()
+    let first_cell = make_iter()
+        .next()
         .ok_or_else(|| Error::Other("Failed to parse first H3 cell.".into()))?;
     let res = first_cell.resolution() as i32;
 
@@ -202,7 +209,15 @@ fn grts_sample_from_cells(
         &base_cells,
     )?;
 
-    build_result_df(sorted, total_cells, sum_all_areas, n, res, "pre-computed", area_correction)
+    build_result_df(
+        sorted,
+        total_cells,
+        sum_all_areas,
+        n,
+        res,
+        "pre-computed",
+        area_correction,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -243,9 +258,7 @@ fn grts_core(
         sum_all_areas += cell_area;
 
         // Pass the tiny array
-        let sort_key = compute_sort_key(
-        cell, res, seed_u64, base_cells, &mut last_seen_perm
-        )?;
+        let sort_key = compute_sort_key(cell, res, seed_u64, base_cells, &mut last_seen_perm)?;
 
         // Compute the effective key used for heap comparison.
         //
@@ -301,33 +314,45 @@ fn build_result_df(
     containment: &str,
     area_correction: bool,
 ) -> extendr_api::Result<Robj> {
-    let cells: Vec<String> = sorted.iter().map(|&(_, idx, _)| format!("{:x}", idx)).collect();
-    let sort_keys: Vec<String> = sorted.iter().map(|&(key, _, _)| format!("{:016x}", key)).collect();
-    let areas_m2: Vec<f64> = sorted.iter().map(|&(_, _, area_bits)| f64::from_bits(area_bits)).collect();
+    let cells: Vec<String> = sorted
+        .iter()
+        .map(|&(_, idx, _)| format!("{:x}", idx))
+        .collect();
+    let sort_keys: Vec<String> = sorted
+        .iter()
+        .map(|&(key, _, _)| format!("{:016x}", key))
+        .collect();
+    let areas_m2: Vec<f64> = sorted
+        .iter()
+        .map(|&(_, _, area_bits)| f64::from_bits(area_bits))
+        .collect();
 
     let n_f64 = n as f64;
     let ip: Vec<f64> = if area_correction {
-        sorted.iter().map(|&(_, _, area_bits)| {
-            let area = f64::from_bits(area_bits);
-            n_f64 * area / sum_all_areas
-        }).collect()
+        sorted
+            .iter()
+            .map(|&(_, _, area_bits)| {
+                let area = f64::from_bits(area_bits);
+                n_f64 * area / sum_all_areas
+            })
+            .collect()
     } else {
         vec![n_f64 / total_cells as f64; n as usize]
     };
 
     let df = data_frame!(
-        cell     = cells,
+        cell = cells,
         sort_key = sort_keys,
-        area_m2  = areas_m2,
-        ip       = ip
+        area_m2 = areas_m2,
+        ip = ip
     );
 
     let mut df_robj: Robj = df.into();
-    df_robj.set_attrib("n_cells",         total_cells as i32)?;
-    df_robj.set_attrib("sum_area_m2",    sum_all_areas)?;
-    df_robj.set_attrib("n",               n)?;
-    df_robj.set_attrib("resolution",      res)?;
-    df_robj.set_attrib("containment",     containment)?;
+    df_robj.set_attrib("n_cells", total_cells as i32)?;
+    df_robj.set_attrib("sum_area_m2", sum_all_areas)?;
+    df_robj.set_attrib("n", n)?;
+    df_robj.set_attrib("resolution", res)?;
+    df_robj.set_attrib("containment", containment)?;
     df_robj.set_attrib("area_correction", area_correction)?;
 
     Ok(df_robj)
@@ -377,7 +402,8 @@ fn compute_sort_key(
         // more robust than manual bit-masking.
         let parent_res = Resolution::try_from((r - 1) as u8)
             .map_err(|_| Error::Other(format!("Invalid parent resolution: {}", r - 1)))?;
-        let parent_cell = cell.parent(parent_res)
+        let parent_cell = cell
+            .parent(parent_res)
             .ok_or_else(|| Error::Other(format!("Could not get parent at res {}", r - 1)))?;
         let parent_id = u64::from(parent_cell);
         let r_idx = r as usize;
@@ -458,9 +484,9 @@ fn decode_wkb(wkb_bytes: &[u8]) -> extendr_api::Result<Geometry> {
 fn parse_containment(containment: &str) -> extendr_api::Result<ContainmentMode> {
     match containment {
         "intersect" => Ok(ContainmentMode::IntersectsBoundary),
-        "centroid"  => Ok(ContainmentMode::ContainsCentroid),
-        "boundary"  => Ok(ContainmentMode::ContainsBoundary),
-        "covers"    => Ok(ContainmentMode::Covers),
+        "centroid" => Ok(ContainmentMode::ContainsCentroid),
+        "boundary" => Ok(ContainmentMode::ContainsBoundary),
+        "covers" => Ok(ContainmentMode::Covers),
         other => Err(Error::Other(format!(
             "Unknown containment mode: '{}'. \
              Expected one of: intersect, centroid, boundary, covers.",
@@ -473,17 +499,18 @@ fn parse_containment(containment: &str) -> extendr_api::Result<ContainmentMode> 
 /// Returns an error (rather than silently skipping) if unexpected geometry
 /// types such as LineStrings are encountered, as these likely indicate an
 /// upstream data pipeline issue.
-fn feed_geometry(
-    tiler: &mut h3o::geom::Tiler,
-    geometry: Geometry,
-) -> extendr_api::Result<()> {
+fn feed_geometry(tiler: &mut h3o::geom::Tiler, geometry: Geometry) -> extendr_api::Result<()> {
     match geometry {
         Geometry::Polygon(p) => {
-            tiler.add(p).map_err(|e| Error::Other(format!("Invalid polygon: {}", e)))?;
+            tiler
+                .add(p)
+                .map_err(|e| Error::Other(format!("Invalid polygon: {}", e)))?;
         }
         Geometry::MultiPolygon(mp) => {
             for p in mp {
-                tiler.add(p).map_err(|e| Error::Other(format!("Invalid polygon in multipolygon: {}", e)))?;
+                tiler
+                    .add(p)
+                    .map_err(|e| Error::Other(format!("Invalid polygon in multipolygon: {}", e)))?;
             }
         }
         Geometry::GeometryCollection(gc) => {
@@ -527,20 +554,19 @@ fn shuffled_base_cells(seed_u64: u64) -> [u64; H3_NUM_BASE_CELLS] {
     cells
 }
 
-
 /// Return a human-readable name for a `geo::Geometry` variant.
 fn geometry_type_name<T: geo::CoordNum>(geom: &Geometry<T>) -> &'static str {
     match geom {
-        Geometry::Point(_)              => "Point",
-        Geometry::Line(_)               => "Line",
-        Geometry::LineString(_)         => "LineString",
-        Geometry::Polygon(_)            => "Polygon",
-        Geometry::MultiPoint(_)         => "MultiPoint",
-        Geometry::MultiLineString(_)    => "MultiLineString",
-        Geometry::MultiPolygon(_)       => "MultiPolygon",
+        Geometry::Point(_) => "Point",
+        Geometry::Line(_) => "Line",
+        Geometry::LineString(_) => "LineString",
+        Geometry::Polygon(_) => "Polygon",
+        Geometry::MultiPoint(_) => "MultiPoint",
+        Geometry::MultiLineString(_) => "MultiLineString",
+        Geometry::MultiPolygon(_) => "MultiPolygon",
         Geometry::GeometryCollection(_) => "GeometryCollection",
-        Geometry::Rect(_)               => "Rect",
-        Geometry::Triangle(_)           => "Triangle",
+        Geometry::Rect(_) => "Rect",
+        Geometry::Triangle(_) => "Triangle",
     }
 }
 
