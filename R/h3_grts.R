@@ -21,11 +21,8 @@
 #'  Cell areas vary by up to ~1.9x across the icosahedral projection;
 #'  this is ignored in the sampling step but can be corrected at the estimation
 #'  stage using the returned `area_m2` and `ip` columns.
-#'  If `TRUE`, rejection sampling is applied so that each cell is accepted with
-#'  probability area_i / max_area, making the effective inclusion probability
-#'  proportional to area: pi_i = n * area_i / sum(area).
-#'  A pre-pass over the coverage is required to find the maximum cell area, so
-#'  this mode incurs roughly 2x the runtime of the default mode.
+#'  If `TRUE`, Sequential Poisson Sampling is applied, making the effective
+#'  inclusion probability proportional to area: pi_i = n * area_i / sum(area).
 #' @param seed Numeric. A random seed passed to the Rust engine to ensure a
 #'   reproducible hierarchical shuffle. The seed must be a whole number,
 #'   `>= 0`, and `< 2^53`.

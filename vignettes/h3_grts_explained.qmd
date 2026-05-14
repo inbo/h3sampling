@@ -143,11 +143,18 @@ While H3 strives for uniformity, the cells are not perfect equal-area hexagons e
 For a given resolution, cell areas can differ by a factor of two - in practice, this will often be much smaller if the region of interest is restricted (say, a country).
 
 For statistical inference, we can either take the varying cell areas into account at the estimation stage or at the sample selection stage.
-For the latter approach, `h3sampling::h3_grts()` has an argument `area_correction`, which when set to `TRUE`, will adjust the inclusion probabilities of the cells to take into account the varying cell areas.
-Before a cell is considered for the final sample, it is subjected to an area-based rejection sampling step.
-Cells are kept with a probability proportional to their true physical area relative to the maximum cell area in the stratum.
+For the latter approach, `h3sampling::h3_grts()` has an argument `area_correction`.
+When set to `TRUE`, it adjusts the inclusion probabilities of the cells so that they are sampled with probability proportional to their size (PPS).
+An efficient Order Sampling technique (similar to Sequential Poisson Sampling) is used (Rosén 1997, Ohlsson 1998).
+For each cell, the algorithm divides its spatially balanced GRTS sort key (which acts as a uniform random variable) by its true physical area to calculate an "effective key".
+By selecting the $n$ cells with the smallest effective keys, the algorithm naturally scales the inclusion probabilities.
+This ensures that larger cells are proportionately more likely to be selected, all while strictly maintaining the requested sample size and the spatial balance of the GRTS design.
 
 # References
+
+Rosén B. (1997). On sampling with probability proportional to size. Journal of Statistical Planning and Inference 62 (2): 159-191. https://doi.org/10.1016/S0378-3758(96)00186-3.
+
+Ohlsson, E. (1998). Sequential Poisson Sampling. Journal of Official Statistics, 14(2), 149-162.
 
 Stevens, D. L., & Olsen, A. R. (2004). Spatially Balanced Sampling of Natural Resources. Journal of the American Statistical Association, 99(465), 262–278. https://doi.org/10.1198/016214504000000250
 

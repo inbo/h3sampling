@@ -29,12 +29,9 @@ h3_coverage <- function(wkb_bytes, res, containment) .Call(wrap__h3_coverage, wk
 #'                      across the icosahedral projection; this is ignored in the
 #'                      sampling step but can be corrected at the estimation stage
 #'                      using the returned `area_m2` and `ip` columns.
-#'                      If `true`, rejection sampling is applied so that each cell
-#'                      is accepted with probability area_i / max_area, making the
+#'                      If `true`, sequential poisson sampling is applied, making the
 #'                      effective inclusion probability proportional to area:
-#'                      pi_i = n * area_i / sum(area). A pre-pass over the coverage
-#'                      is required to find the maximum cell area, so this mode
-#'                      incurs roughly 2x the runtime of the default mode.
+#'                      pi_i = n * area_i / sum(area).
 #'
 #' # Returns
 #' A `data.frame` with four columns ordered by ascending sort key (GRTS order):

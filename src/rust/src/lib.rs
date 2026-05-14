@@ -80,12 +80,9 @@ fn h3_coverage(wkb_bytes: &[u8], res: i32, containment: &str) -> extendr_api::Re
 ///                      across the icosahedral projection; this is ignored in the
 ///                      sampling step but can be corrected at the estimation stage
 ///                      using the returned `area_m2` and `ip` columns.
-///                      If `true`, rejection sampling is applied so that each cell
-///                      is accepted with probability area_i / max_area, making the
+///                      If `true`, sequential poisson sampling is applied, making the
 ///                      effective inclusion probability proportional to area:
-///                      pi_i = n * area_i / sum(area). A pre-pass over the coverage
-///                      is required to find the maximum cell area, so this mode
-///                      incurs roughly 2x the runtime of the default mode.
+///                      pi_i = n * area_i / sum(area).
 ///
 /// # Returns
 /// A `data.frame` with four columns ordered by ascending sort key (GRTS order):
@@ -232,7 +229,7 @@ fn grts_core(
     seed_u64: u64,
     area_correction: bool,
     base_cells: &[u64; H3_NUM_BASE_CELLS],
-) -> extendr_api::Result<(Vec<(u64, u64, u64)>, usize, f64)> {
+) -> extendr_api::Result<(Vec<(u64, u64, u64, u64)>, usize, f64)> {
     // Heap tuple: (effective_key_bits, h3_index, area_bits)
     //
     // effective_key_bits is f64::to_bits(effective_key), where:
@@ -241,8 +238,8 @@ fn grts_core(
     //
     // For all positive finite f64, to_bits() preserves order, so the
     // max-heap correctly evicts the cell with the largest effective key.
-    let mut heap: BinaryHeap<(u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
-
+    // (effective_key_bits, raw_sort_key, h3_index, area_bits)
+    let mut heap: BinaryHeap<(u64, u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
     // This 16-element array
     // stores (parent_id, [permutation]) for each of the 16 H3 resolutions.
     let mut last_seen_perm = [(u64::MAX, [0u64; 7]); 16];
@@ -284,21 +281,21 @@ fn grts_core(
         reservoir_push(
             &mut heap,
             target_n,
-            effective_key_bits,
+            effective_key_bits, // drives eviction
+            sort_key,                // preserved for display
             u64::from(cell),
             cell_area,
         );
     }
 
     // Validate sample size -----------------------------------------------
-    // Check heap size rather than total_cells: with area_correction the
-    // eligible pool is smaller than the full coverage.
+    // If the heap has fewer items than target_n,
+    // the study area simply doesn't contain enough cells.
     if heap.len() < target_n {
         return Err(Error::Other(format!(
-            "Target n ({}) exceeds the number of eligible cells ({}{}). Try a higher resolution or larger area.",
+            "Target n ({}) exceeds the total number of cells covering the geometry ({}). Try a higher resolution or larger area.",
             target_n,
-            heap.len(),
-            if area_correction { format!(" accepted from {} total", total_cells) } else { String::new() }
+            total_cells
         )));
     }
 
@@ -306,7 +303,7 @@ fn grts_core(
 }
 
 fn build_result_df(
-    sorted: Vec<(u64, u64, u64)>,
+    sorted: Vec<(u64, u64, u64, u64)>,
     total_cells: usize,
     sum_all_areas: f64,
     n: i32,
@@ -314,24 +311,33 @@ fn build_result_df(
     containment: &str,
     area_correction: bool,
 ) -> extendr_api::Result<Robj> {
-    let cells: Vec<String> = sorted
+    // Destructure the 4-tuple
+    let effective_keys: Vec<f64> = sorted
         .iter()
-        .map(|&(_, idx, _)| format!("{:x}", idx))
+        .map(|&(eff_bits, _, _, _)| f64::from_bits(eff_bits))
         .collect();
+
     let sort_keys: Vec<String> = sorted
         .iter()
-        .map(|&(key, _, _)| format!("{:016x}", key))
+        .map(|&(_, raw_sort_key, _, _)| format!("{:016x}", raw_sort_key))
         .collect();
+
+    let cells: Vec<String> = sorted
+        .iter()
+        .map(|&(_, _, idx, _)| format!("{:x}", idx))
+        .collect();
+
     let areas_m2: Vec<f64> = sorted
         .iter()
-        .map(|&(_, _, area_bits)| f64::from_bits(area_bits))
+        .map(|&(_, _, _, area_bits)| f64::from_bits(area_bits))
         .collect();
 
     let n_f64 = n as f64;
+
     let ip: Vec<f64> = if area_correction {
         sorted
             .iter()
-            .map(|&(_, _, area_bits)| {
+            .map(|&(_, _, _, area_bits)| {
                 let area = f64::from_bits(area_bits);
                 n_f64 * area / sum_all_areas
             })
@@ -343,6 +349,7 @@ fn build_result_df(
     let df = data_frame!(
         cell = cells,
         sort_key = sort_keys,
+        effective_key = effective_keys,
         area_m2 = areas_m2,
         ip = ip
     );
@@ -452,23 +459,23 @@ fn compute_sort_key(
 /// without re-querying h3o.
 #[inline]
 fn reservoir_push(
-    heap: &mut BinaryHeap<(u64, u64, u64)>,
+    heap: &mut BinaryHeap<(u64, u64, u64, u64)>,
     target_n: usize,
-    sort_key: u64,
+    effective_key_bits: u64,
+    raw_sort_key: u64,
     h3_index: u64,
     cell_area: f64,
 ) {
     let area_bits = cell_area.to_bits();
     if heap.len() < target_n {
-        heap.push((sort_key, h3_index, area_bits));
-    } else if let Some(&(max_key, _, _)) = heap.peek() {
-        if sort_key < max_key {
-            heap.push((sort_key, h3_index, area_bits));
+        heap.push((effective_key_bits, raw_sort_key, h3_index, area_bits));
+    } else if let Some(&(max_key, _, _, _)) = heap.peek() {
+        if effective_key_bits < max_key {
+            heap.push((effective_key_bits, raw_sort_key, h3_index, area_bits));
             heap.pop();
         }
     }
 }
-
 // ---------------------------------------------------------------------------
 // Geometry helpers
 // ---------------------------------------------------------------------------
