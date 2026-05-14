@@ -19,7 +19,8 @@ rand = { version = '0.8.5', default-features = false }
 rand_pcg = '0.3.1'
 geo = '0.28'
 h3o = { version = '0.9', features = ['geo'] }
-geozero = { version = '0.13', default-features = false, features = ['with-geo', 'with-wkb'] }
+wkb = '0.9'
+geo-traits = { version = '0.3', features = ['geo-types'] }
 
 [profile.release]
 lto = true

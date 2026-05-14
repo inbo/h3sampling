@@ -1,13 +1,15 @@
+#![recursion_limit = "256"]
 use extendr_api::prelude::*;
 use geo::Geometry;
-use geozero::wkb::Wkb;
-use geozero::ToGeo;
+use geo_traits::to_geo::ToGeoGeometry;
 use h3o::geom::{ContainmentMode, TilerBuilder};
 use h3o::{CellIndex, Resolution};
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rand_pcg::Pcg64Mcg;
 use std::collections::BinaryHeap;
+use std::convert::TryInto;
+use wkb::reader::Wkb;
 
 // ---------------------------------------------------------------------------
 // H3 bit-layout constants (from the H3 spec)
@@ -282,7 +284,7 @@ fn grts_core(
             &mut heap,
             target_n,
             effective_key_bits, // drives eviction
-            sort_key,                // preserved for display
+            sort_key,           // preserved for display
             u64::from(cell),
             cell_area,
         );
@@ -482,11 +484,12 @@ fn reservoir_push(
 
 /// Decode a WKB byte slice into a `geo::Geometry`.
 fn decode_wkb(wkb_bytes: &[u8]) -> extendr_api::Result<Geometry> {
-    Wkb(wkb_bytes.to_vec())
-        .to_geo()
-        .map_err(|e| Error::Other(format!("WKB parse failed: {}", e)))
+    // Create a zero-copy WKB reader from the raw byte slice.
+    let wkb_obj =
+        Wkb::try_new(wkb_bytes).map_err(|e| Error::Other(format!("WKB parse failed: {}", e)))?;
+    // Use the geo-traits extension to convert into an owned geo::Geometry
+    Ok(wkb_obj.to_geometry())
 }
-
 /// Parse the containment mode string into an `h3o` `ContainmentMode`.
 fn parse_containment(containment: &str) -> extendr_api::Result<ContainmentMode> {
     match containment {
