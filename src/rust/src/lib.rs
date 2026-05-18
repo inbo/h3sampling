@@ -37,6 +37,47 @@ const SORT_KEY_BASE_BITS: u32 = 7;
 const SORT_KEY_BITS_PER_RES: u32 = 3;
 
 // ---------------------------------------------------------------------------
+// Type aliases
+// ---------------------------------------------------------------------------
+
+/// One entry in the GRTS reservoir heap.
+///
+/// Fields are kept as raw `u64` bits so the tuple is `Copy + Ord` and can
+/// live directly in a `BinaryHeap` without a wrapper type.
+///
+/// * `effective_key_bits` - `f64::to_bits(sort_key / area)` (or bare
+///   `sort_key`): drives eviction; positive finite f64 bit patterns
+///   preserve numeric order.
+/// * `raw_sort_key` - The un-weighted GRTS sort key, preserved for
+///   display in the output data frame.
+/// * `h3_index` - The raw `u64` H3 cell index.
+/// * `area_bits`- `f64::to_bits(cell_area_m2)`, carried through
+///   so areas are available after the loop without re-querying h3o.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct HeapEntry {
+    effective_key_bits: u64,
+    raw_sort_key: u64,
+    h3_index: u64,
+    area_bits: u64,
+}
+
+impl HeapEntry {
+    #[inline]
+    fn new(effective_key_bits: u64, raw_sort_key: u64, h3_index: u64, area_bits: u64) -> Self {
+        Self {
+            effective_key_bits,
+            raw_sort_key,
+            h3_index,
+            area_bits,
+        }
+    }
+}
+
+/// Output of `grts_core`: the sorted reservoir, the total cell count, and
+/// the sum of all cell areas in m² across the full coverage.
+type GrtsCoreResult = (Vec<HeapEntry>, usize, f64);
+
+// ---------------------------------------------------------------------------
 // Public entry points
 // ---------------------------------------------------------------------------
 
@@ -231,17 +272,14 @@ fn grts_core(
     seed_u64: u64,
     area_correction: bool,
     base_cells: &[u64; H3_NUM_BASE_CELLS],
-) -> extendr_api::Result<(Vec<(u64, u64, u64, u64)>, usize, f64)> {
-    // Heap tuple: (effective_key_bits, h3_index, area_bits)
-    //
-    // effective_key_bits is f64::to_bits(effective_key), where:
+) -> extendr_api::Result<GrtsCoreResult> {
+    // HeapEntry stores effective_key_bits = f64::to_bits(effective_key), where:
     //   area_correction = false: effective_key = sort_key as f64
     //   area_correction = true:  effective_key = sort_key as f64 / cell_area
     //
     // For all positive finite f64, to_bits() preserves order, so the
     // max-heap correctly evicts the cell with the largest effective key.
-    // (effective_key_bits, raw_sort_key, h3_index, area_bits)
-    let mut heap: BinaryHeap<(u64, u64, u64, u64)> = BinaryHeap::with_capacity(target_n + 1);
+    let mut heap: BinaryHeap<HeapEntry> = BinaryHeap::with_capacity(target_n + 1);
     // This 16-element array
     // stores (parent_id, [permutation]) for each of the 16 H3 resolutions.
     let mut last_seen_perm = [(u64::MAX, [0u64; 7]); 16];
@@ -305,7 +343,7 @@ fn grts_core(
 }
 
 fn build_result_df(
-    sorted: Vec<(u64, u64, u64, u64)>,
+    sorted: Vec<HeapEntry>,
     total_cells: usize,
     sum_all_areas: f64,
     n: i32,
@@ -313,34 +351,27 @@ fn build_result_df(
     containment: &str,
     area_correction: bool,
 ) -> extendr_api::Result<Robj> {
-    // Destructure the 4-tuple
     let effective_keys: Vec<f64> = sorted
         .iter()
-        .map(|&(eff_bits, _, _, _)| f64::from_bits(eff_bits))
+        .map(|e| f64::from_bits(e.effective_key_bits))
         .collect();
 
     let sort_keys: Vec<String> = sorted
         .iter()
-        .map(|&(_, raw_sort_key, _, _)| format!("{:016x}", raw_sort_key))
+        .map(|e| format!("{:016x}", e.raw_sort_key))
         .collect();
 
-    let cells: Vec<String> = sorted
-        .iter()
-        .map(|&(_, _, idx, _)| format!("{:x}", idx))
-        .collect();
+    let cells: Vec<String> = sorted.iter().map(|e| format!("{:x}", e.h3_index)).collect();
 
-    let areas_m2: Vec<f64> = sorted
-        .iter()
-        .map(|&(_, _, _, area_bits)| f64::from_bits(area_bits))
-        .collect();
+    let areas_m2: Vec<f64> = sorted.iter().map(|e| f64::from_bits(e.area_bits)).collect();
 
     let n_f64 = n as f64;
 
     let ip: Vec<f64> = if area_correction {
         sorted
             .iter()
-            .map(|&(_, _, _, area_bits)| {
-                let area = f64::from_bits(area_bits);
+            .map(|e| {
+                let area = f64::from_bits(e.area_bits);
                 n_f64 * area / sum_all_areas
             })
             .collect()
@@ -455,25 +486,30 @@ fn compute_sort_key(
 // Heap reservoir helper
 // ---------------------------------------------------------------------------
 
-/// Push `(sort_key, h3_index, area_bits)` into the reservoir heap, evicting
-/// the maximum element if the heap is already full and the new key is smaller.
+/// Push a [`HeapEntry`] into the reservoir heap, evicting the maximum element
+/// if the heap is already full and the new key is smaller.
 /// Cell area is carried through so weights can be computed after the loop
 /// without re-querying h3o.
 #[inline]
 fn reservoir_push(
-    heap: &mut BinaryHeap<(u64, u64, u64, u64)>,
+    heap: &mut BinaryHeap<HeapEntry>,
     target_n: usize,
     effective_key_bits: u64,
     raw_sort_key: u64,
     h3_index: u64,
     cell_area: f64,
 ) {
-    let area_bits = cell_area.to_bits();
+    let entry = HeapEntry::new(
+        effective_key_bits,
+        raw_sort_key,
+        h3_index,
+        cell_area.to_bits(),
+    );
     if heap.len() < target_n {
-        heap.push((effective_key_bits, raw_sort_key, h3_index, area_bits));
-    } else if let Some(&(max_key, _, _, _)) = heap.peek() {
-        if effective_key_bits < max_key {
-            heap.push((effective_key_bits, raw_sort_key, h3_index, area_bits));
+        heap.push(entry);
+    } else if let Some(&max) = heap.peek() {
+        if effective_key_bits < max.effective_key_bits {
+            heap.push(entry);
             heap.pop();
         }
     }
