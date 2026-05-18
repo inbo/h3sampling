@@ -17,12 +17,11 @@ h3_get_coverage <- function(
   resolution = 5,
   containment = c("centroid", "intersect", "boundary", "covers")
 ) {
-  if (!is.raw(wkb)) {
-    stop("Input 'wkb' must be a raw byte vector representing WKB geometry.")
-  }
   stopifnot(
-    is.numeric(resolution),
-    resolution >= 0 & resolution <= 15
+    "Input 'wkb' must be a raw byte vector representing WKB geometry." =
+      is.raw(wkb),
+    "`resolution` must be a whole number, >= 0, and <= 15." =
+      is_valid_resolution(resolution)
   )
   containment <- match.arg(containment)
 
