@@ -18,4 +18,4 @@ jobs:
     steps:
       - uses: inbo/actions/check_pkg@devel
         with:
-          aptget: "rustc cargo"
+          aptget: "cargo"
