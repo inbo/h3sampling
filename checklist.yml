@@ -39,3 +39,5 @@ spelling:
   - R/extendr-wrappers.R
   - tests/testthat/_snaps/
 pak: []
+gha_install: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs
+  | bash -s -- -y
