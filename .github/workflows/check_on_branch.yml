@@ -18,5 +18,3 @@ jobs:
       contents: read
     steps:
       - uses: inbo/actions/check_pkg@devel
-        with:
-          aptget: "cargo"
