@@ -96,9 +96,8 @@ h3_grts <- function(
   stopifnot(
     "Either 'wkb' or 'cells' must be provided, not both." =
       xor(!missing(wkb), !missing(cells)),
-    is.numeric(n),
     is.logical(area_correction) && !is.na(area_correction),
-    n > 0,
+    "`n` must be a whole number, > 0, not `NA`" = is_valid_n(n),
     "`seed` must be a whole number, >= 0, and < 2^53." = is_valid_seed(seed)
   )
 
@@ -146,4 +145,8 @@ is_valid_resolution <- function(resolution) {
 is_valid_seed <- function(seed) {
   !missing(seed) &&
     is.numeric(seed) && seed %% 1 == 0 && seed >= 0 && seed < 2^53
+}
+
+is_valid_n <- function(n) {
+  !missing(n) && is.numeric(n) && n %% 1 == 0 && n > 0
 }

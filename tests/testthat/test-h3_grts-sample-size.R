@@ -51,6 +51,6 @@ test_that("n = -5 returns a clear error", {
   skip_if_not_installed("sf")
   expect_error(
     h3_grts(create_test_wkb(), n = -5, seed = 42),
-    "n > 0 is not TRUE"
+    "`n` must be "
   )
 })
