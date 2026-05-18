@@ -177,7 +177,7 @@ fn grts_sample_from_cells(
     let target_n = n as usize;
 
     // Safety check: ensure the byte slice is a perfect multiple of 8
-    if cells_bytes.is_empty() || cells_bytes.len() % 8 != 0 {
+    if cells_bytes.is_empty() || !cells_bytes.len().is_multiple_of(8) {
         return Err(Error::Other(
             "Provided cells vector is empty or malformed.".into(),
         ));
@@ -356,7 +356,7 @@ fn build_result_df(
         ip = ip
     );
 
-    let mut df_robj: Robj = df.into();
+    let mut df_robj: Robj = df;
     df_robj.set_attrib("n_cells", total_cells as i32)?;
     df_robj.set_attrib("sum_area_m2", sum_all_areas)?;
     df_robj.set_attrib("n", n)?;
