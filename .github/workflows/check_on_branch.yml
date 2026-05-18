@@ -18,3 +18,5 @@ jobs:
       contents: read
     steps:
       - uses: inbo/actions/check_pkg@devel
+        with:
+          aptget: libudunits2-dev libgdal-dev libgeos-dev libproj-dev
