@@ -10,7 +10,7 @@ use rand_pcg::Pcg64Mcg;
 use std::collections::BinaryHeap;
 use std::convert::TryInto;
 use wkb::reader::Wkb;
-
+mod bas;
 // ---------------------------------------------------------------------------
 // H3 bit-layout constants (from the H3 spec)
 // ---------------------------------------------------------------------------
@@ -625,4 +625,5 @@ extendr_module! {
     fn h3_coverage;
     fn grts_sample_from_wkb;
     fn grts_sample_from_cells;
+    use bas;
 }
