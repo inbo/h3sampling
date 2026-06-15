@@ -25,8 +25,7 @@
 #' @return A `data.frame` with `n` rows and three columns:
 #' * `lon`         – Longitude of the sample point (WGS84 decimal degrees).
 #' * `lat`         – Latitude  of the sample point (WGS84 decimal degrees).
-#' * `sobol_index` – Index into the 1D GRTS stream at which this point was
-#'                   generated. Useful for verifying prefix stability.
+#' * `grts_rank` – Spatial GRTS sequence order.
 #'
 #' The returned `data.frame` also carries the following attributes:
 #' * `seed`            – The seed used (numeric).

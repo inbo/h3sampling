@@ -37,18 +37,18 @@ test_that("sampler returns a data.frame with correct columns", {
   expect_s3_class(result, "data.frame")
   expect_equal(
     names(result),
-    c("lon", "lat", "sobol_index")
+    c("lon", "lat", "grts_rank")
   )
   expect_type(result$lon, "double")
   expect_type(result$lat, "double")
-  expect_type(result$sobol_index, "integer")
+  expect_type(result$grts_rank, "integer")
   expect_type(attr(result, "seed"), "double")
   expect_type(attr(result, "n"), "integer")
   expect_type(attr(result, "sobol_scanned"), "double")
   expect_type(attr(result, "acceptance_rate"), "double")
   expect_type(attr(result, "bbox"), "double")
-  expect_equal(result$sobol_index, sort(result$sobol_index))
-  expect_equal(length(unique(result$sobol_index)), nrow(result))
+  expect_equal(result$grts_rank, sort(result$grts_rank))
+  expect_equal(length(unique(result$grts_rank)), nrow(result))
   expect_equal(attr(result, "n"), nrow(result))
 
   result <- bas_sobol(create_test_wkb(), n = 5, seed = 42)

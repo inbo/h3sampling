@@ -22,8 +22,7 @@ A \code{data.frame} with \code{n} rows and three columns:
 \itemize{
 \item \code{lon}         – Longitude of the sample point (WGS84 decimal degrees).
 \item \code{lat}         – Latitude  of the sample point (WGS84 decimal degrees).
-\item \code{sobol_index} – Index into the 1D GRTS stream at which this point was
-generated. Useful for verifying prefix stability.
+\item \code{grts_rank} – Spatial GRTS sequence order.
 }
 
 The returned \code{data.frame} also carries the following attributes:
