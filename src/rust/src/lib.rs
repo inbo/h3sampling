@@ -11,6 +11,7 @@ use std::collections::BinaryHeap;
 use std::convert::TryInto;
 use wkb::reader::Wkb;
 mod bas;
+mod grts_sobol;
 // ---------------------------------------------------------------------------
 // H3 bit-layout constants (from the H3 spec)
 // ---------------------------------------------------------------------------
@@ -626,4 +627,5 @@ extendr_module! {
     fn grts_sample_from_wkb;
     fn grts_sample_from_cells;
     use bas;
+    use grts_sobol;
 }

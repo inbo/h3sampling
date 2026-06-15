@@ -93,4 +93,6 @@ grts_sample_from_cells <- function(cells_bytes, n, global_seed, area_correction)
 #' @noRd
 bas_sample_from_wkb <- function(wkb_bytes, n, seed) .Call(wrap__bas_sample_from_wkb, wkb_bytes, n, seed)
 
+grts_sobol_sample_from_wkb <- function(wkb_bytes, n, seed) .Call(wrap__grts_sobol_sample_from_wkb, wkb_bytes, n, seed)
+
 # nolint end
