@@ -8,7 +8,7 @@ grts_sobol(wkb, n, seed)
 }
 \arguments{
 \item{wkb}{Raw byte vector representing a Well-Known Binary (WKB) geometry
-in WGS84 (EPSG:4326). Must be a POLYGON or MULTIPOLYGON.}
+in WGS84 (EPSG:4326). Must be a \code{POLYGON} or \code{MULTIPOLYGON}.}
 
 \item{n}{Integer. The target number of sample locations to draw.}
 
@@ -40,7 +40,7 @@ into valid geometry, completely bypassing rejection.
 }
 \description{
 Generates a continuous Generalized Random Tessellation Stratified (GRTS)
-sample from a polygon or multipolygon without relying on discrete grid
+sample from a \code{POLYGON} or \code{MULTIPOLYGON} without relying on discrete grid
 approximations or rejection sampling.
 
 The algorithm generates a 1D spatial sequence (via interleaved 2D

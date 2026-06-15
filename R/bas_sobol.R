@@ -1,8 +1,8 @@
 #' Generate a Spatially Balanced BAS Sample using a Sobol Sequence
 #'
 #' @description
-#' Generates a spatially balanced sample from a polygon or multipolygon using a
-#' balanced acceptance sampling (BAS) approach.
+#' Generates a spatially balanced sample from a `POLYGON` or `MULTIPOLYGON`
+#' using a balanced acceptance sampling (BAS) approach.
 #' Points are drawn from a 2-D Owen-scrambled Sobol sequence (Pharr et al 2023)
 #' projected onto the study area via an area-equal coordinate transform,
 #' so that equal fractions of the sequence correspond to equal surface areas on
@@ -14,7 +14,7 @@
 #' needed.
 #'
 #' @param wkb Raw byte vector representing a Well-Known Binary (WKB) geometry
-#'   in WGS84 (EPSG:4326). Must be a POLYGON or MULTIPOLYGON.
+#'   in WGS84 (EPSG:4326). Must be a `POLYGON` or `MULTIPOLYGON`.
 #' @param n Integer. The target number of sample locations to draw.
 #' @param seed Numeric. A random seed passed to the Rust engine to ensure
 #'   reproducible sampling. Must be a whole number `>= 0` and `< 2^53`.

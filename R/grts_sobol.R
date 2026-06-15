@@ -2,7 +2,7 @@
 #'
 #' @description
 #' Generates a continuous Generalized Random Tessellation Stratified (GRTS)
-#' sample from a polygon or multipolygon without relying on discrete grid
+#' sample from a `POLYGON` or `MULTIPOLYGON` without relying on discrete grid
 #' approximations or rejection sampling.
 #'
 #' The algorithm generates a 1D spatial sequence (via interleaved 2D
@@ -15,7 +15,7 @@
 #' infinite continuous resolution.
 #'
 #' @param wkb Raw byte vector representing a Well-Known Binary (WKB) geometry
-#'   in WGS84 (EPSG:4326). Must be a POLYGON or MULTIPOLYGON.
+#'   in WGS84 (EPSG:4326). Must be a `POLYGON` or `MULTIPOLYGON`.
 #' @param n Integer. The target number of sample locations to draw.
 #' @param seed Numeric. A random seed passed to the Rust engine to ensure
 #'   reproducible sampling. Must be a whole number `>= 0` and `< 2^53`.

@@ -8,7 +8,7 @@ bas_sobol(wkb, n, seed)
 }
 \arguments{
 \item{wkb}{Raw byte vector representing a Well-Known Binary (WKB) geometry
-in WGS84 (EPSG:4326). Must be a POLYGON or MULTIPOLYGON.}
+in WGS84 (EPSG:4326). Must be a \code{POLYGON} or \code{MULTIPOLYGON}.}
 
 \item{n}{Integer. The target number of sample locations to draw.}
 
@@ -42,8 +42,8 @@ bounding box and imply higher computational cost.
 }
 }
 \description{
-Generates a spatially balanced sample from a polygon or multipolygon using a
-balanced acceptance sampling (BAS) approach.
+Generates a spatially balanced sample from a \code{POLYGON} or \code{MULTIPOLYGON}
+using a balanced acceptance sampling (BAS) approach.
 Points are drawn from a 2-D Owen-scrambled Sobol sequence (Pharr et al 2023)
 projected onto the study area via an area-equal coordinate transform,
 so that equal fractions of the sequence correspond to equal surface areas on
