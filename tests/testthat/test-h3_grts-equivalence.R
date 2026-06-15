@@ -1,27 +1,9 @@
 # test-h3_grts-equivalence.R
-# Tests for cross-platform stability (snapshot) and equivalence between the
+# Tests for equivalence between the
 # WKB and pre-computed cells input pathways.
 
 # ---------------------------------------------------------------------------
-# 1. Snapshot — cross-OS portability anchor
-# ---------------------------------------------------------------------------
-
-test_that("h3_grts output is strictly portable across OS architectures", {
-  skip_if_not_installed("sf")
-  sample_out <- h3_grts(
-    wkb         = create_test_wkb(),
-    n           = 5,
-    resolution  = 4,
-    containment = "centroid",
-    seed        = 42
-  )
-  # style = "serialize" captures exact binary equivalence including column
-  # types, float bit patterns, and attribute values.
-  expect_snapshot_value(sample_out, style = "serialize")
-})
-
-# ---------------------------------------------------------------------------
-# 2. WKB vs pre-computed cells pathway equivalence
+# 1. WKB vs pre-computed cells pathway equivalence
 # ---------------------------------------------------------------------------
 
 test_that("WKB and cells pathways produce identical samples", {

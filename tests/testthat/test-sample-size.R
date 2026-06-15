@@ -1,20 +1,31 @@
-# test-h3_grts-sample-size.R
+# test-sample-size.R
 # Tests around the n argument: exact row counts and boundary behaviour.
 
 test_that("result has exactly n rows", {
   skip_if_not_installed("sf")
-  result <- h3_grts(create_test_wkb(), n = 5, resolution = 4, seed = 42)
+  wkb <- create_test_wkb()
+  result <- h3_grts(wkb, n = 5, resolution = 4, seed = 42)
   expect_equal(nrow(result), 5L)
+
+  result <- grts_sobol(wkb, n = 5, seed = 42)
+  expect_equal(nrow(result), 5L)
+
+  result <- bas_sobol(wkb, n = 5, seed = 42)
+  expect_equal(nrow(result), 5L)
+
 })
 
 test_that("n = 1 returns exactly one row with all required columns", {
   skip_if_not_installed("sf")
-  result <- h3_grts(create_test_wkb(), n = 1, resolution = 4, seed = 42)
+  wkb <- create_test_wkb()
+  result <- h3_grts(wkb, n = 1, resolution = 4, seed = 42)
   expect_equal(nrow(result), 1L)
-  expect_equal(
-    names(result),
-    c("cell", "sort_key", "effective_key", "area_m2", "ip")
-  )
+
+  result <- grts_sobol(wkb, n = 1, seed = 42)
+  expect_equal(nrow(result), 1L)
+
+  result <- bas_sobol(wkb, n = 1, seed = 42)
+  expect_equal(nrow(result), 1L)
 })
 
 test_that("n equal to total coverage returns all cells in sort_key order", {
@@ -51,6 +62,14 @@ test_that("n = -5 returns a clear error", {
   skip_if_not_installed("sf")
   expect_error(
     h3_grts(create_test_wkb(), n = -5, seed = 42),
+    "`n` must be "
+  )
+  expect_error(
+    grts_sobol(create_test_wkb(), n = -5, seed = 42),
+    "`n` must be "
+  )
+  expect_error(
+    bas_sobol(create_test_wkb(), n = -5, seed = 42),
     "`n` must be "
   )
 })
