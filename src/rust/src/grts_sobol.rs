@@ -51,8 +51,7 @@ fn s_to_lat(s: f64) -> f64 {
 
 #[derive(Debug, Clone)]
 struct TargetPoint {
-    id: usize,        // generation index (0..n-1); restored after routing for prefix stability
-    grts_rank: usize, // position in area_target sort order = spatial GRTS sequence order
+    id: usize, // generation index (0..n-1); restored after routing for prefix stability = spatial GRTS sequence order
     area_target: f64,
     lon: f64,
     lat: f64,
@@ -507,22 +506,15 @@ pub fn grts_sobol_sample_from_wkb(
 
         targets.push(TargetPoint {
             id: i,
-            grts_rank: 0, // filled after sorting below
             area_target: u * total_area,
             lon: 0.0,
             lat: 0.0,
         });
     }
 
-    // Sort to enable fast routing partition, then record spatial rank.
-    // grts_rank is the position in this sorted order — it defines the GRTS
-    // sequence: rank 0 is the first point visited spatially, rank 1 the second,
-    // etc. This ordering is useful for sequential field sampling (visit sites
-    // in rank order to maintain spatial balance as sampling is extended or stopped).
+    // Sort to enable fast routing partition.
+    // The area_target sort is strictly internal for routing the points down the quadtree.
     targets.sort_by(|a, b| a.area_target.partial_cmp(&b.area_target).unwrap());
-    for (rank, t) in targets.iter_mut().enumerate() {
-        t.grts_rank = rank;
-    }
 
     // Route points through the quadtree
     let root_cell = CellBounds {
@@ -540,7 +532,7 @@ pub fn grts_sobol_sample_from_wkb(
     let lats: Vec<f64> = targets.iter().map(|t| s_to_lat(t.lat)).collect();
     // grts_rank gives the spatial ordering: visit sites in ascending rank order
     // to maintain spatial balance when the sample is extended or truncated in the field.
-    let grts_ranks: Vec<i32> = targets.iter().map(|t| t.grts_rank as i32).collect();
+    let grts_ranks: Vec<i32> = targets.iter().map(|t| t.id as i32).collect();
 
     let df = data_frame!(lon = lons, lat = lats, grts_rank = grts_ranks);
 
