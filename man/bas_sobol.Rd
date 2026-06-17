@@ -17,7 +17,8 @@ reproducible sampling. Must be a whole number \verb{>= 0} and \verb{< 2^53}.
 The seed controls the Owen scramble of the Sobol sequence; different seeds
 yield statistically independent samples.}
 
-\item{master_bbox}{Numeric vector c(xmin, ymin, xmax, ymax) (WGS-84 decimal degrees).}
+\item{master_bbox}{Numeric vector \code{c(xmin, ymin, xmax, ymax)}
+(WGS-84 decimal degrees).}
 }
 \value{
 A \code{data.frame} with \code{n} rows and three columns:

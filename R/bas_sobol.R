@@ -20,7 +20,8 @@
 #'   reproducible sampling. Must be a whole number `>= 0` and `< 2^53`.
 #'   The seed controls the Owen scramble of the Sobol sequence; different seeds
 #'   yield statistically independent samples.
-#' @param master_bbox Numeric vector c(xmin, ymin, xmax, ymax) (WGS-84 decimal degrees).
+#' @param master_bbox Numeric vector `c(xmin, ymin, xmax, ymax)`
+#' (WGS-84 decimal degrees).
 #'
 #' @return A `data.frame` with `n` rows and three columns:
 #' * `lon`         – Longitude of the sample point (WGS84 decimal degrees).
@@ -141,7 +142,11 @@ is_valid_bbox <- function(bbox) {
     #Numeric vector c(xmin, ymin, xmax, ymax) (WGS-84 decimal degrees)
     is.numeric(bbox) &&
       length(bbox) == 4 &&
-      all(bbox[c(1, 3)] <= 180) && all(bbox[c(1, 3)] >= -180) &&
-      all(bbox[c(2, 4)] <= 90) && all(bbox[c(2, 4)] >= -90)
+      bbox_is_decimal_degrees(bbox)
   )
+}
+
+bbox_is_decimal_degrees <- function(bbox) {
+  all(bbox[c(1, 3)] <= 180) && all(bbox[c(1, 3)] >= -180) &&
+    all(bbox[c(2, 4)] <= 90) && all(bbox[c(2, 4)] >= -90)
 }
