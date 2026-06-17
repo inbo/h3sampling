@@ -16,17 +16,19 @@ NULL
 #' * `n`         – Desired sample size.
 #' * `seed`      – Reproducibility seed (f64 from R; values ≤ 2^53 are
 #'                 losslessly round-tripped through f64).
+#' * `seed`      – Reproducibility seed (f64 from R; values ≤ 2^53 are
+#'                 losslessly round-tripped through f64).
 #'
 #' # Returns
 #' A `data.frame` with columns:
 #' * `lon`         – Longitude (WGS-84 decimal degrees).
 #' * `lat`         – Latitude  (WGS-84 decimal degrees).
-#' * `sobol_index` – Raw Sobol stream index at which this point was accepted.
+#' * `master_bbox` – Numeric vector c(xmin, ymin, xmax, ymax) (WGS-84 decimal degrees).
 #'
 #' Attributes:
 #' * `seed`          – The seed used (as f64).
 #' * `n`             – Requested sample size.
-#' * `bbox`          – Numeric vector c(xmin, ymin, xmax, ymax).
+#' * `sequence_bbox` – Numeric vector c(xmin, ymin, xmax, ymax) (master bounding box or polygon bounding box).
 #' * `sobol_scanned` – Total Sobol indices evaluated (accepted + rejected).
 #' * `fill_ratio`    – n / sobol_scanned  (bbox → polygon acceptance rate).
 #'
@@ -34,7 +36,7 @@ NULL
 #' Calling with the same `seed` and `n2 > n1` returns a data frame whose
 #' first `n1` rows are identical to the `n1`-row result.
 #' @noRd
-bas_sample_from_wkb <- function(wkb_bytes, n, seed) .Call(wrap__bas_sample_from_wkb, wkb_bytes, n, seed)
+bas_sample_from_wkb <- function(wkb_bytes, n, seed, master_bbox) .Call(wrap__bas_sample_from_wkb, wkb_bytes, n, seed, master_bbox)
 
 #' geometry -> coverage
 #' @noRd

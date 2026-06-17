@@ -4,7 +4,7 @@
 \alias{bas_sobol}
 \title{Generate a Spatially Balanced BAS Sample using a Sobol Sequence}
 \usage{
-bas_sobol(wkb, n, seed)
+bas_sobol(wkb, n, seed, master_bbox = NULL)
 }
 \arguments{
 \item{wkb}{Raw byte vector representing a Well-Known Binary (WKB) geometry
@@ -16,6 +16,8 @@ in WGS84 (EPSG:4326). Must be a \code{POLYGON} or \code{MULTIPOLYGON}.}
 reproducible sampling. Must be a whole number \verb{>= 0} and \verb{< 2^53}.
 The seed controls the Owen scramble of the Sobol sequence; different seeds
 yield statistically independent samples.}
+
+\item{master_bbox}{Numeric vector c(xmin, ymin, xmax, ymax) (WGS-84 decimal degrees).}
 }
 \value{
 A \code{data.frame} with \code{n} rows and three columns:
@@ -31,8 +33,9 @@ The returned \code{data.frame} also carries the following attributes:
 \itemize{
 \item \code{seed}          – The seed used (numeric).
 \item \code{n}             – Requested sample size (integer).
-\item \code{bbox}          – Named numeric vector \code{c(xmin, ymin, xmax, ymax)} of the
+\item \code{sequence_bbox} – Named numeric vector \code{c(xmin, ymin, xmax, ymax)} of the
 geometry bounding box in decimal degrees.
+Either from master bounding box or polygon bounding box.
 \item \code{sobol_scanned} – Total number of Sobol stream indices evaluated
 (accepted + rejected). Equals the last \code{sobol_index} + 1.
 \item \code{fill_ratio}    – \code{n / sobol_scanned}. The fraction of bounding-box

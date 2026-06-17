@@ -65,7 +65,7 @@ test_that("sampler returns a data.frame with correct columns", {
   expect_type(attr(result, "n"), "integer")
   expect_type(attr(result, "sobol_scanned"), "double")
   expect_type(attr(result, "fill_ratio"), "double")
-  expect_type(attr(result, "bbox"), "double")
+  expect_type(attr(result, "sequence_bbox"), "double")
   expect_equal(result$sobol_index, sort(result$sobol_index))
   expect_equal(length(unique(result$sobol_index)), nrow(result))
   expect_equal(attr(result, "n"), nrow(result))

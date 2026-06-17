@@ -20,6 +20,7 @@
 #'   reproducible sampling. Must be a whole number `>= 0` and `< 2^53`.
 #'   The seed controls the Owen scramble of the Sobol sequence; different seeds
 #'   yield statistically independent samples.
+#' @param master_bbox Numeric vector c(xmin, ymin, xmax, ymax) (WGS-84 decimal degrees).
 #'
 #' @return A `data.frame` with `n` rows and three columns:
 #' * `lon`         – Longitude of the sample point (WGS84 decimal degrees).
@@ -31,8 +32,9 @@
 #' The returned `data.frame` also carries the following attributes:
 #' * `seed`          – The seed used (numeric).
 #' * `n`             – Requested sample size (integer).
-#' * `bbox`          – Named numeric vector `c(xmin, ymin, xmax, ymax)` of the
+#' * `sequence_bbox` – Named numeric vector `c(xmin, ymin, xmax, ymax)` of the
 #'                     geometry bounding box in decimal degrees.
+#'                     Either from master bounding box or polygon bounding box.
 #' * `sobol_scanned` – Total number of Sobol stream indices evaluated
 #'                     (accepted + rejected). Equals the last `sobol_index` + 1.
 #' * `fill_ratio`    – `n / sobol_scanned`. The fraction of bounding-box
@@ -105,7 +107,7 @@
 #' plot(st_geometry(nc[1, ]), main = "BAS-Sobol Sample (Ashe County)")
 #' plot(st_geometry(sample_sf), add = TRUE, pch = 20, col = "steelblue")
 #' }
-bas_sobol <- function(wkb, n, seed) {
+bas_sobol <- function(wkb, n, seed, master_bbox = NULL) {
   # 0. Assertions
   stopifnot(
     "Input 'wkb' must be a raw byte vector representing WKB geometry." =
@@ -113,20 +115,33 @@ bas_sobol <- function(wkb, n, seed) {
     "`n` must be a whole number, > 0, not `NA`." =
       is_valid_n(n),
     "`seed` must be a whole number, >= 0, and < 2^53." =
-      is_valid_seed(seed)
+      is_valid_seed(seed),
+    "`master_bbox` must be length 4 numeric in decimal degrees" =
+      is_valid_bbox(master_bbox)
   )
 
   # Call the Rust engine
   res_df <- bas_sample_from_wkb(
     wkb_bytes = wkb,
     n = as.integer(n),
-    seed = as.numeric(seed)
+    seed = as.numeric(seed),
+    master_bbox = master_bbox
   )
 
   # Attach names to the bbox attribute
-  bbox <- attr(res_df, "bbox")
+  bbox <- attr(res_df, "sequence_bbox")
   names(bbox) <- c("xmin", "ymin", "xmax", "ymax")
-  attr(res_df, "bbox") <- bbox
+  attr(res_df, "sequence_bbox") <- bbox
 
   return(res_df)
+}
+
+is_valid_bbox <- function(bbox) {
+  is.null(bbox) || (
+    #Numeric vector c(xmin, ymin, xmax, ymax) (WGS-84 decimal degrees)
+    is.numeric(bbox) &&
+      length(bbox) == 4 &&
+      all(bbox[c(1, 3)] <= 180) && all(bbox[c(1, 3)] >= -180) &&
+      all(bbox[c(2, 4)] <= 90) && all(bbox[c(2, 4)] >= -90)
+  )
 }

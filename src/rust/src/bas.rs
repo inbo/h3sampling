@@ -225,17 +225,19 @@ fn dim_seed(global_seed: u32, dim: usize) -> u32 {
 /// * `n`         – Desired sample size.
 /// * `seed`      – Reproducibility seed (f64 from R; values ≤ 2^53 are
 ///                 losslessly round-tripped through f64).
+/// * `seed`      – Reproducibility seed (f64 from R; values ≤ 2^53 are
+///                 losslessly round-tripped through f64).
 ///
 /// # Returns
 /// A `data.frame` with columns:
 /// * `lon`         – Longitude (WGS-84 decimal degrees).
 /// * `lat`         – Latitude  (WGS-84 decimal degrees).
-/// * `sobol_index` – Raw Sobol stream index at which this point was accepted.
+/// * `master_bbox` – Numeric vector c(xmin, ymin, xmax, ymax) (WGS-84 decimal degrees).
 ///
 /// Attributes:
 /// * `seed`          – The seed used (as f64).
 /// * `n`             – Requested sample size.
-/// * `bbox`          – Numeric vector c(xmin, ymin, xmax, ymax).
+/// * `sequence_bbox` – Numeric vector c(xmin, ymin, xmax, ymax) (master bounding box or polygon bounding box).
 /// * `sobol_scanned` – Total Sobol indices evaluated (accepted + rejected).
 /// * `fill_ratio`    – n / sobol_scanned  (bbox → polygon acceptance rate).
 ///
@@ -244,7 +246,12 @@ fn dim_seed(global_seed: u32, dim: usize) -> u32 {
 /// first `n1` rows are identical to the `n1`-row result.
 /// @noRd
 #[extendr]
-pub fn bas_sample_from_wkb(wkb_bytes: &[u8], n: i32, seed: f64) -> extendr_api::Result<Robj> {
+pub fn bas_sample_from_wkb(
+    wkb_bytes: &[u8],
+    n: i32,
+    seed: f64,
+    master_bbox: Robj,
+) -> extendr_api::Result<Robj> {
     let target_n = n as usize;
     if target_n == 0 {
         return Err(Error::Other("n must be >= 1".into()));
@@ -258,24 +265,50 @@ pub fn bas_sample_from_wkb(wkb_bytes: &[u8], n: i32, seed: f64) -> extendr_api::
     let seed_lon = dim_seed(seed_u32, 0);
     let seed_lat = dim_seed(seed_u32, 1);
 
-    // 1. Decode WKB -----------------------------------------------------------
+    // 1. Decode WKB
     let geometry = decode_wkb(wkb_bytes)?;
 
-    // 2. Compute bounding box -------------------------------------------------
-    let bbox = bounding_rect(&geometry)
+    // 2. Compute Polygon's tight bounding box (for the fast pre-filter)
+    let poly_bbox = bounding_rect(&geometry)
         .ok_or_else(|| Error::Other("Could not compute bounding box of geometry".into()))?;
 
-    let lon_min = bbox.min().x;
-    let lon_max = bbox.max().x;
-    let lat_min = bbox.min().y;
-    let lat_max = bbox.max().y;
+    let poly_lon_min = poly_bbox.min().x;
+    let poly_lon_max = poly_bbox.max().x;
+    let poly_lat_min = poly_bbox.min().y;
+    let poly_lat_max = poly_bbox.max().y;
 
-    let sin_lat_min = lat_min.to_radians().sin();
-    let sin_lat_max = lat_max.to_radians().sin();
+    // 3. Establish the Sequence Domain (Master BBox or Polygon BBox)
+    let (seq_lon_min, seq_lat_min, seq_lon_max, seq_lat_max) = if !master_bbox.is_null() {
+        let bbox_vec = master_bbox.as_real_vector().ok_or_else(|| {
+            Error::Other("master_bbox must be a numeric vector of length 4".into())
+        })?;
+        if bbox_vec.len() != 4 {
+            return Err(Error::Other(
+                "master_bbox must contain exactly 4 elements: c(xmin, ymin, xmax, ymax)".into(),
+            ));
+        }
+        (bbox_vec[0], bbox_vec[1], bbox_vec[2], bbox_vec[3])
+    } else {
+        (poly_lon_min, poly_lat_min, poly_lon_max, poly_lat_max)
+    };
+
+    let sin_lat_min = seq_lat_min.to_radians().sin();
+    let sin_lat_max = seq_lat_max.to_radians().sin();
     let sin_lat_range = sin_lat_max - sin_lat_min;
-    let lon_range = lon_max - lon_min;
+    let lon_range = seq_lon_max - seq_lon_min;
 
-    // 3. Sobol rejection loop -------------------------------------------------
+    // Disjoint Check
+    if seq_lon_max < poly_lon_min
+        || seq_lon_min > poly_lon_max
+        || seq_lat_max < poly_lat_min
+        || seq_lat_min > poly_lat_max
+    {
+        return Err(Error::Other(
+            "master_bbox and polygon bounding box do not intersect.".into(),
+        ));
+    }
+
+    // 4. Sobol Rejection Loop
     let mut lons: Vec<f64> = Vec::with_capacity(target_n);
     let mut lats: Vec<f64> = Vec::with_capacity(target_n);
     let mut sobol_indices: Vec<i32> = Vec::with_capacity(target_n);
@@ -286,26 +319,31 @@ pub fn bas_sample_from_wkb(wkb_bytes: &[u8], n: i32, seed: f64) -> extendr_api::
         let u = sobol_sample(sobol_idx, 0, seed_lon); // longitude
         let v = sobol_sample(sobol_idx, 1, seed_lat); // latitude
 
-        let lon = lon_min + u * lon_range;
+        let lon = seq_lon_min + u * lon_range;
         let sin_lat = sin_lat_min + v * sin_lat_range;
         let lat = sin_lat.asin().to_degrees();
 
-        let point = Point(Coord { x: lon, y: lat });
+        sobol_idx = sobol_idx.checked_add(1).ok_or_else(|| {
+            Error::Other(
+                "Sobol index overflow (2^32): master_bbox is too large compared to polygon".into(),
+            )
+        })?;
 
+        // FAST PRE-FILTER: Instantly reject points outside the polygon's tight bbox
+        if lon < poly_lon_min || lon > poly_lon_max || lat < poly_lat_min || lat > poly_lat_max {
+            continue;
+        }
+
+        // EXPENSIVE TEST: Only run if it passes the pre-filter
+        let point = Point(Coord { x: lon, y: lat });
         if geometry_contains(&geometry, &point) {
             lons.push(lon);
             lats.push(lat);
-            sobol_indices.push(sobol_idx as i32);
+            sobol_indices.push((sobol_idx - 1) as i32);
         }
-
-        sobol_idx = sobol_idx.checked_add(1).ok_or_else(|| {
-            Error::Other(
-                "Sobol index overflow (2^32): geometry may be too small or degenerate".into(),
-            )
-        })?;
     }
 
-    // 4. Build result data frame ----------------------------------------------
+    // 5. Build result data frame
     let sobol_scanned = sobol_idx as f64;
     let fill_ratio = target_n as f64 / sobol_scanned;
 
@@ -314,7 +352,10 @@ pub fn bas_sample_from_wkb(wkb_bytes: &[u8], n: i32, seed: f64) -> extendr_api::
     let mut df_robj: Robj = df;
     df_robj.set_attrib("seed", seed)?;
     df_robj.set_attrib("n", n)?;
-    df_robj.set_attrib("bbox", r!([lon_min, lat_min, lon_max, lat_max]))?;
+    df_robj.set_attrib(
+        "sequence_bbox",
+        r!([seq_lon_min, seq_lat_min, seq_lon_max, seq_lat_max]),
+    )?;
     df_robj.set_attrib("sobol_scanned", sobol_scanned)?;
     df_robj.set_attrib("fill_ratio", fill_ratio)?;
 
