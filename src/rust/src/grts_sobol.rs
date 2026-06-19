@@ -293,22 +293,22 @@ fn sobol_raw(mut index: u32, dimension: usize) -> u32 {
     result
 }
 
+#[inline]
+fn expand_bits_32(v: u32) -> u64 {
+    let mut x = v as u64;
+    x = (x | (x << 16)) & 0x0000FFFF0000FFFF;
+    x = (x | (x << 8)) & 0x00FF00FF00FF00FF;
+    x = (x | (x << 4)) & 0x0F0F0F0F0F0F0F0F;
+    x = (x | (x << 2)) & 0x3333333333333333;
+    x = (x | (x << 1)) & 0x5555555555555555;
+    x
+}
+
 /// Interleave the bits of X and Y into a 64-bit Morton code.
 #[inline]
 fn morton_interleave(x: u32, y: u32) -> u64 {
-    let mut res = 0u64;
-    for i in 0..32 {
-        let shift = 31 - i;
-        let bit_x = ((x >> shift) & 1) as u64;
-        let bit_y = ((y >> shift) & 1) as u64;
-
-        // Quadtree quadrant order: Y is the high bit, X is the low bit.
-        // e.g., Quadrant 3 (Top-Right) -> X=1, Y=1 -> 0b11
-        let out_shift = 62 - 2 * i;
-        res |= bit_x << out_shift;
-        res |= bit_y << (out_shift + 1);
-    }
-    res
+    // Quadtree quadrant order: Y is the high bit, X is the low bit.
+    expand_bits_32(x) | (expand_bits_32(y) << 1)
 }
 
 // ---------------------------------------------------------------------------
