@@ -19,4 +19,5 @@ jobs:
     steps:
       - uses: inbo/actions/check_pkg@main
         with:
-          aptget: libudunits2-dev libgdal-dev libgeos-dev libproj-dev
+          cmd: |
+            sudo apt-get install -y libudunits2-dev libgdal-dev libgeos-dev libproj-dev
