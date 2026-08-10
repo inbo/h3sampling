@@ -7,7 +7,14 @@ Authors@R: c(
     person("Research Institute for Nature and Forest (INBO)", , , "info@inbo.be", role = c("cph", "fnd", "pbl"),
            comment = c(ROR = "00j54wy13"))
   )
-Description: Implements spatially balanced sampling algorithms on the sphere using sequence-based randomization. It offers two distinct methodologies: exact-area continuous sampling from vector geodata utilizing Owen-scrambled Sobol sequences, and discrete spatial sampling via the H3 global grid system. Both approaches operate natively on unprojected geographic coordinates, eliminating the need for map projections while ensuring spatially well-distributed survey points.
+Description: Implements spatially balanced sampling algorithms on the
+    sphere using sequence-based randomization. It offers two distinct
+    methodologies: exact-area continuous sampling from vector geodata
+    utilizing Owen-scrambled Sobol sequences, and discrete spatial
+    sampling via the H3 global grid system. Both approaches operate
+    natively on unprojected geographic coordinates, eliminating the need
+    for map projections while ensuring spatially well-distributed survey
+    points.
 License: MIT + file LICENSE
 URL: https://github.com/inbo/sbsampling,
     https://inbo.github.io/sbsampling/
@@ -23,7 +30,8 @@ Suggests:
 VignetteBuilder: 
     quarto
 Config/citeme/communities: inbo
-Config/citeme/keywords: H3; GRTS; spatially balanced sampling; Sobol sequence
+Config/citeme/keywords: H3; GRTS; spatially balanced sampling; Sobol
+    sequence
 Config/rextendr/version: 0.5.0
 Config/roxygen2/version: 8.1.0
 Config/testthat/edition: 3

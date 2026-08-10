@@ -1,4 +1,5 @@
 !source/**/_extensions/**
+**/.quarto/
 *.[rR][dD]ata
 *.[rR]ds
 *.dbf
@@ -26,14 +27,14 @@
 .Rproj.user
 .Ruserdata
 .httr-oauth
+.positai
 .quarto
 docs
+inst/doc
 libs
 output
 renv/library
 src/Makevars
 src/Makevars.win
 src/rust/vendor
-inst/doc
-**/.quarto/
-.positai
+tests/testthat/_problems

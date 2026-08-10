@@ -14,10 +14,10 @@
 ^codecov\.yml$
 ^data-raw$
 ^docs$
-^sbsampling\.Rproj$
 ^man-roxygen$
 ^organisation.yml$
 ^pkgdown$
+^sbsampling\.Rproj$
 ^src/Makevars$
 ^src/Makevars\.win$
 ^src/\.cargo$
