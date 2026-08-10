@@ -1,4 +1,4 @@
-# h3sampling 0.1.0
+# sbsampling 0.1.0
 
 * Added `h3_get_coverage()` to pre-compute H3 cell indices covering an input
   geometry.

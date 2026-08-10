@@ -2,7 +2,7 @@
 # nolint start
 
 #' @usage NULL
-#' @useDynLib h3sampling, .registration = TRUE
+#' @useDynLib sbsampling, .registration = TRUE
 NULL
 
 #' Generate a spatially-balanced BAS-like sample from a WKB polygon.

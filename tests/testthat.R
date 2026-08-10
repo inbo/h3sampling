@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(h3sampling)
+library(sbsampling)
 
-test_check("h3sampling")
+test_check("sbsampling")

@@ -11,7 +11,7 @@ allowed:
       New submission
 
       Found the following (possibly) invalid URLs:
-        URL: https://inbo.github.io/h3sampling/
+        URL: https://inbo.github.io/sbsampling/
           From: DESCRIPTION
                 inst/CITATION
           Status: 404

@@ -15,7 +15,7 @@ knitr:
 H3 is a hierarchical hexagonal grid covering the globe.
 Given a global random seed and an H3 resolution, every H3 cell on Earth gets assigned a unique sort index.
 Selecting cells in the order of this index results in a spatially balanced sample.
-The `h3sampling` package calculates both the grid and these sort indices mathematically on the fly.
+The `sbsampling` package calculates both the grid and these sort indices mathematically on the fly.
 This allows you to draw reproducible GRTS samples from hundreds of millions of spatial locations, without exceeding your computer's RAM or requiring heavy databases.
 
 # The H3 discrete global grid system
@@ -113,7 +113,7 @@ Our cell's new, randomized address is: **Base 85 &rarr; Resolution 1: 5 &rarr; R
 If we created a sorting number using the top-down order (Base Cell first), our sample would still be geographically clustered.
 All cells within Base Cell 20 would remain grouped together numerically.
 
-To force the sample to spread evenly across the study area, `h3sampling::h3_grts()` applies **reverse hierarchical ordering** directly at the bit level.
+To force the sample to spread evenly across the study area, `sbsampling::h3_grts()` applies **reverse hierarchical ordering** directly at the bit level.
 It packs the newly shuffled digits into a brand new 64-bit integer, but it builds it from the ground up:
 
 * **Bits 0-6:** The newly shuffled Base Cell (`85`) is placed at the very bottom (the least significant bits).
@@ -143,7 +143,7 @@ While H3 strives for uniformity, the cells are not perfect equal-area hexagons e
 For a given resolution, cell areas can differ by a factor of two - in practice, this will often be much smaller if the region of interest is restricted (say, a country).
 
 For statistical inference, we can either take the varying cell areas into account at the estimation stage or at the sample selection stage.
-For the latter approach, `h3sampling::h3_grts()` has an argument `area_correction`.
+For the latter approach, `sbsampling::h3_grts()` has an argument `area_correction`.
 When set to `TRUE`, it adjusts the inclusion probabilities of the cells so that they are sampled with probability proportional to their size (PPS).
 An efficient Order Sampling technique (similar to Sequential Poisson Sampling) is used (Rosén 1997, Ohlsson 1998).
 For each cell, the algorithm divides its spatially balanced GRTS sort key (which acts as a uniform random variable) by its true physical area to calculate an "effective key".

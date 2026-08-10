@@ -1,5 +1,5 @@
 [package]
-name = 'h3sampling'
+name = 'sbsampling'
 publish = false
 version = '0.1.0'
 edition = '2021'
@@ -7,7 +7,7 @@ rust-version = '1.90.0'
 
 [lib]
 crate-type = [ 'rlib', 'staticlib' ]
-name = 'h3sampling'
+name = 'sbsampling'
 
 [[bin]]
 name = 'document'

@@ -14,7 +14,7 @@
 ^codecov\.yml$
 ^data-raw$
 ^docs$
-^h3sampling\.Rproj$
+^sbsampling\.Rproj$
 ^man-roxygen$
 ^organisation.yml$
 ^pkgdown$

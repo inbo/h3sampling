@@ -16,29 +16,29 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 [![Project Status: Concept - Minimal or no implementation has been done yet, or the repository is only intended to be a limited example, demo, or proof-of-concept.](https://www.repostatus.org/badges/latest/concept.svg)](https://www.repostatus.org/#concept)
 [![MIT + file LICENSE](https://img.shields.io/badge/License-MIT_+_file_LICENSE-brightgreen)](NA)
-[![Release](https://img.shields.io/github/release/inbo/h3sampling.svg)](https://github.com/inbo/h3sampling/releases)
-![GitHub Workflow Status](https://github.com/inbo/h3sampling/actions/workflows/check_on_main.yml/badge.svg)
-![GitHub repo size](https://img.shields.io/github/repo-size/inbo/h3sampling)
-![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/inbo/h3sampling.svg)
+[![Release](https://img.shields.io/github/release/inbo/sbsampling.svg)](https://github.com/inbo/sbsampling/releases)
+![GitHub Workflow Status](https://github.com/inbo/sbsampling/actions/workflows/check_on_main.yml/badge.svg)
+![GitHub repo size](https://img.shields.io/github/repo-size/inbo/sbsampling)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/inbo/sbsampling.svg)
 ![r-universe name](https://inbo.r-universe.dev/badges/:name?color=c04384)
-![r-universe package](https://inbo.r-universe.dev/badges/h3sampling)
-[![Codecov test coverage](https://codecov.io/gh/inbo/h3sampling/branch/main/graph/badge.svg)](https://app.codecov.io/gh/inbo/h3sampling?branch=main)
+![r-universe package](https://inbo.r-universe.dev/badges/sbsampling)
+[![Codecov test coverage](https://codecov.io/gh/inbo/sbsampling/branch/main/graph/badge.svg)](https://app.codecov.io/gh/inbo/sbsampling?branch=main)
 [![extendr](https://img.shields.io/badge/extendr-^0.8.1-276DC2)](https://extendr.rs/extendr/extendr_api/)
 <!-- badges: end -->
 
-# h3sampling: Spatially Balanced Sampling from the H3 Discrete Global Grid System
+# sbsampling: Sequence-based Spatially Balanced Sampling on the Sphere
 
 [Van Calster, Hans](mailto:hans.vancalster%40inbo.be)[^aut]
 
 [^aut]: author
 
-**keywords**:  H3; GRTS; spatially balanced sampling
+**keywords**:  H3; GRTS; spatially balanced sampling; Sobol sequence
 
 <!-- description: start -->
-Reproducible, lean and fast spatially balanced (master) sampling leveraging the H3 discrete global grid system.
+Implements spatially balanced sampling algorithms on the sphere using sequence-based randomization. It offers two distinct methodologies: exact-area continuous sampling from vector geodata utilizing Owen-scrambled Sobol sequences, and discrete spatial sampling via the H3 global grid system. Both approaches operate natively on unprojected geographic coordinates, eliminating the need for map projections while ensuring spatially well-distributed survey points.
 <!-- description: end -->
 
-The `h3sampling` package implements spatially balanced sampling designs which leverage the [H3](https://h3geo.org/) discrete global grid system for indexing spatial data into a hexagonal grid.
+The `sbsampling` package implements spatially balanced sampling designs which leverage the [H3](https://h3geo.org/) discrete global grid system for indexing spatial data into a hexagonal grid.
 The package currently provides spatially balanced sampling via an adaptation of the Generalized Random Tessellation Stratified (GRTS) algorithm.
 By making use of the [H3](https://h3geo.org/) global grid, the package is especially suitable for so-called master samples.
 For a given H3 grid resolution and a given random seed, all H3 cells are deterministically sorted such that consecutively ordered cells are spatially balanced samples for a given area on earth.
@@ -56,7 +56,7 @@ You can install the development version from
 
 ``` r
 # install.packages("remotes")
-remotes::install_git("https://github.com/inbo/h3sampling")
+remotes::install_git("https://github.com/inbo/sbsampling")
 ```
 
 ## Example
@@ -67,7 +67,7 @@ This corresponds to hexagonal areas of approximately 5.16 km².
 The `h3o` package can be used to, among other things, obtain the hexagon centroid or vertices.
 
 ```{r example}
-library(h3sampling)
+library(sbsampling)
 nc_path <- system.file("shape/nc.shp", package = "sf")
 ashe <- sf::st_read(
   nc_path,

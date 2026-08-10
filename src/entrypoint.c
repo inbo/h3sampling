@@ -1,10 +1,10 @@
 // We need to forward routine registration from C to Rust
 // to avoid the linker removing the static library.
 
-void R_init_h3sampling_extendr(void *dll);
+void R_init_sbsampling_extendr(void *dll);
 void register_extendr_panic_hook(void);
 
-void R_init_h3sampling(void *dll) {
+void R_init_sbsampling(void *dll) {
     register_extendr_panic_hook();
-    R_init_h3sampling_extendr(dll);
+    R_init_sbsampling_extendr(dll);
 }

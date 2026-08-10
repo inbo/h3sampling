@@ -6,13 +6,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         # nolint start\n\
         \n\
         #' @usage NULL\n\
-        #' @useDynLib h3sampling, .registration = TRUE\n\
+        #' @useDynLib sbsampling, .registration = TRUE\n\
         NULL\n\
         \n\
     ";
     let footer = "# nolint end\n";
-    let wrappers = h3sampling::get_h3sampling_metadata()
-        .make_r_wrappers(true, "h3sampling")
+    let wrappers = sbsampling::get_sbsampling_metadata()
+        .make_r_wrappers(true, "sbsampling")
         .map_err(|e| format!("failed to generate wrappers: {e}"))?;
     std::fs::write(wrapper_path, format!("{header}{wrappers}{footer}"))
         .map_err(|e| format!("failed to write {wrapper_path}: {e}"))?;

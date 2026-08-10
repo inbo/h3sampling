@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: If you use this software, please cite it using these metadata.
-title: "h3sampling: Spatially Balanced Sampling from the H3 Discrete Global Grid System"
+title: "sbsampling: Sequence-based Spatially Balanced Sampling on the Sphere"
 authors:
 - given-names: Hans
   family-names: Van Calster
@@ -10,6 +10,7 @@ keywords:
 - H3
 - GRTS
 - spatially balanced sampling
+- Sobol sequence
 contact:
 - given-names: Hans
   family-names: Van Calster
@@ -17,11 +18,15 @@ contact:
   orcid: 0000-0001-8595-8426
 doi: ~
 license: MIT
-repository-code: https://github.com/inbo/h3sampling/
+repository-code: https://github.com/inbo/sbsampling/
 type: software
-abstract: "Reproducible, lean and fast spatially balanced (master) sampling leveraging
-  the H3 discrete global grid system."
+abstract: "Implements spatially balanced sampling algorithms on the sphere using sequence-based
+  randomization. It offers two distinct methodologies: exact-area continuous sampling
+  from vector geodata utilizing Owen-scrambled Sobol sequences, and discrete spatial
+  sampling via the H3 global grid system. Both approaches operate natively on unprojected
+  geographic coordinates, eliminating the need for map projections while ensuring
+  spatially well-distributed survey points."
 identifiers:
 - type: url
-  value: https://inbo.github.io/h3sampling/
+  value: https://inbo.github.io/sbsampling/
 version: 0.1.0

@@ -253,19 +253,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b42eb4efef1f96510ae1a33b2682562a677d504641e9903a77bf5c666b9013e"
 
 [[package]]
-name = "h3sampling"
-version = "0.1.0"
-dependencies = [
- "extendr-api",
- "geo",
- "geo-traits",
- "h3o",
- "rand",
- "rand_pcg",
- "wkb",
-]
-
-[[package]]
 name = "hash32"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -565,6 +552,19 @@ name = "rustversion"
 version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
+
+[[package]]
+name = "sbsampling"
+version = "0.1.0"
+dependencies = [
+ "extendr-api",
+ "geo",
+ "geo-traits",
+ "h3o",
+ "rand",
+ "rand_pcg",
+ "wkb",
+]
 
 [[package]]
 name = "serde"

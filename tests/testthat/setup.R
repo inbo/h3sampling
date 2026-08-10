@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Setup: shared helpers for h3sampling tests
+# Setup: shared helpers for sbsampling tests
 # ---------------------------------------------------------------------------
 
 # Create a valid WKB polygon for testing.

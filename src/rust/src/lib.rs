@@ -10,7 +10,7 @@ mod grts_sobol;
 // ---------------------------------------------------------------------------
 
 extendr_module! {
-    mod h3sampling;
+    mod sbsampling;
     use bas;
     use grts_h3;
     use grts_sobol;
