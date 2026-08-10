@@ -1,5 +1,5 @@
 Package: sbsampling
-Title: Sequence-based Spatially Balanced Sampling on the Sphere
+Title: Sequence-Based Spatially Balanced Sampling on the Sphere
 Version: 0.1.0
 Authors@R: c(
     person("Hans", "Van Calster", , "hans.vancalster@inbo.be", role = c("aut", "cre"),

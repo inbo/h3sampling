@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: If you use this software, please cite it using these metadata.
-title: "sbsampling: Sequence-based Spatially Balanced Sampling on the Sphere"
+title: "sbsampling: Sequence-Based Spatially Balanced Sampling on the Sphere"
 authors:
 - given-names: Hans
   family-names: Van Calster
