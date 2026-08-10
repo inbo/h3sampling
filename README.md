@@ -9,50 +9,69 @@ or
 proof-of-concept.](https://www.repostatus.org/badges/latest/concept.svg)](https://www.repostatus.org/#concept)
 [![MIT + file
 LICENSE](https://img.shields.io/badge/License-MIT_+_file_LICENSE-brightgreen)](NA)
-[![Release](https://img.shields.io/github/release/inbo/h3sampling.svg)](https://github.com/inbo/h3sampling/releases)
+[![Release](https://img.shields.io/github/release/inbo/sbsampling.svg)](https://github.com/inbo/sbsampling/releases)
 ![GitHub Workflow
-Status](https://github.com/inbo/h3sampling/actions/workflows/check_on_main.yml/badge.svg)
+Status](https://github.com/inbo/sbsampling/actions/workflows/check_on_main.yml/badge.svg)
 ![GitHub repo
-size](https://img.shields.io/github/repo-size/inbo/h3sampling) ![GitHub
+size](https://img.shields.io/github/repo-size/inbo/sbsampling) ![GitHub
 code size in
-bytes](https://img.shields.io/github/languages/code-size/inbo/h3sampling.svg)
+bytes](https://img.shields.io/github/languages/code-size/inbo/sbsampling.svg)
 ![r-universe
 name](https://inbo.r-universe.dev/badges/:name?color=c04384)
-![r-universe package](https://inbo.r-universe.dev/badges/h3sampling)
+![r-universe package](https://inbo.r-universe.dev/badges/sbsampling)
 [![Codecov test
-coverage](https://codecov.io/gh/inbo/h3sampling/branch/main/graph/badge.svg)](https://app.codecov.io/gh/inbo/h3sampling?branch=main)
+coverage](https://codecov.io/gh/inbo/sbsampling/branch/main/graph/badge.svg)](https://app.codecov.io/gh/inbo/sbsampling?branch=main)
 [![extendr](https://img.shields.io/badge/extendr-%5E0.8.1-276DC2)](https://extendr.rs/extendr/extendr_api/)
 <!-- badges: end -->
 
-# h3sampling: Spatially Balanced Sampling from the H3 Discrete Global Grid System
+# sbsampling: Sequence-Based Spatially Balanced Sampling on the Sphere
 
 [Van Calster, Hans](mailto:hans.vancalster%40inbo.be)[^1]
 
-**keywords**: H3; GRTS; spatially balanced sampling
+**keywords**: H3; GRTS; spatially balanced sampling; Sobol sequence
 
 <!-- description: start -->
 
-Reproducible, lean and fast spatially balanced (master) sampling
-leveraging the H3 discrete global grid system. <!-- description: end -->
+Implements spatially balanced sampling algorithms on the sphere using
+sequence-based randomization. It offers two distinct methodologies:
+exact-area continuous sampling from vector geodata utilizing
+Owen-scrambled Sobol sequences, and discrete spatial sampling via the H3
+global grid system. Both approaches operate natively on spherical
+geographic coordinates, eliminating the need for map projections while
+ensuring spatially well-distributed survey points.
+<!-- description: end -->
 
-The `h3sampling` package implements spatially balanced sampling designs
-which leverage the [H3](https://h3geo.org/) discrete global grid system
-for indexing spatial data into a hexagonal grid. The package currently
-provides spatially balanced sampling via an adaptation of the
-Generalized Random Tessellation Stratified (GRTS) algorithm. By making
-use of the [H3](https://h3geo.org/) global grid, the package is
-especially suitable for so-called master samples. For a given H3 grid
-resolution and a given random seed, all H3 cells are deterministically
-sorted such that consecutively ordered cells are spatially balanced
-samples for a given area on earth.
+The `sbsampling` package implements sequence-based spatially balanced
+sampling designs where the input sampling frame is in spherical
+coordinates (typically a vector polygon or multi-polygon). The functions
+either directly sample from the continuous spatial domain or leverage
+the [H3](https://h3geo.org/) discrete global grid system for indexing
+spatial data into a hexagonal grid. For the latter, the package provides
+spatially balanced sampling via an adaptation of the Generalized Random
+Tessellation Stratified (GRTS) algorithm. For the former, two
+implementations are provided. One, is a modification of the balanced
+acceptance sampling (BAS) algorithm (Robertson) whereby points are drawn
+from a 2-D Owen-scrambled Sobol sequence and accepted when inside the
+sampling frame. Its domain of applicability should be restricted to
+relatively compact spatial domains. For non-compact spatial domains, we
+provide an implementation of the GRTS algorithm based on the Sobol
+sequence that does not need a discretization step.
+
+All algorithms implemented in the package are sequence-based, meaning
+that they are especially suitable for so-called master samples. For a
+given given random seed (and H3 resolution in case H3 discretization),
+all sampling units are deterministically sorted such that consecutively
+ordered sampling units are spatially balanced samples for a given area
+on earth.
 
 The implementation is written in [`Rust`](https://rust-lang.org/) with
 the aid of `rextendr`. The package is developed with the aid of large
 language models Google Gemini pro and Antropic Claude Sonnet 4.6. The
 former for brainstorming and code writing, the latter for a final critic
 and improvements on the code base. R code is kept to a bare minimum and
-the package has zero R dependencies. This results in a lightweight,
-cross-platform, fast and memory friendly implementation.
+the package has zero R dependencies. All algorithms are thoroughly
+tested, both with unit testing and simulations. The implementation is
+lightweight, cross-platform, fast and memory friendly.
 
 ## Installation
 
@@ -61,7 +80,7 @@ You can install the development version from
 
 ``` r
 # install.packages("remotes")
-remotes::install_git("https://github.com/inbo/h3sampling")
+remotes::install_git("https://github.com/inbo/sbsampling")
 ```
 
 ## Example
@@ -75,7 +94,7 @@ package can be used to, among other things, obtain the hexagon centroid
 or vertices.
 
 ``` r
-library(h3sampling)
+library(sbsampling)
 nc_path <- system.file("shape/nc.shp", package = "sf")
 ashe <- sf::st_read(
   nc_path,
