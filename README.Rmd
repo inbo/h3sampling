@@ -44,8 +44,7 @@ For the latter, the package provides spatially balanced sampling via an adaptati
 For the former, two implementations are provided.
 One, is a modification of the balanced acceptance sampling (BAS) algorithm (Robertson) whereby points are drawn from a 2-D Owen-scrambled Sobol sequence and accepted when inside the sampling frame.
 Its domain of applicability should be restricted to relatively compact spatial domains.
-For non-compact spatial domains, we provide an implementation of the GRTS algorithm based on the Sobol sequence that does not need a discretization step.
-
+For non-compact spatial domains, we provide an adaptation of the GRTS algorithm based on the Sobol sequence that does not need a discretization step or rejection sampling.
 
 All algorithms implemented in the package are sequence-based, meaning that they are especially suitable for so-called master samples.
 For a given given random seed (and H3 resolution in case H3 discretization), all sampling units are deterministically sorted such that consecutively ordered sampling units are spatially balanced samples for a given area on earth.
@@ -67,14 +66,13 @@ You can install the development version from
 remotes::install_git("https://github.com/inbo/sbsampling")
 ```
 
-## Example
+## Examples
 
-For an example, we extract Ashe county from the North Carolina state dataset that ships with the `sf` package.
-We draw a spatially balanced sample with the aid of `h3_grts()` at resolution 7 of the [H3 resolutions](https://h3geo.org/docs/core-library/restable/) system.
-This corresponds to hexagonal areas of approximately 5.16 km².
-The `h3o` package can be used to, among other things, obtain the hexagon centroid or vertices.
+### Sample from a continuous spatial domain
 
-```{r example}
+We extract Ashe county from the North Carolina state dataset that ships with the `sf` package as an example spatial domain (sampling frame) from which we want to draw a spatially balanced sample.
+
+```{r ashe-county}
 library(sbsampling)
 nc_path <- system.file("shape/nc.shp", package = "sf")
 ashe <- sf::st_read(
@@ -86,7 +84,63 @@ ashe_wkb <- ashe |>
   sf::st_geometry() |>
   sf::st_as_binary()
 ashe_wkb <- ashe_wkb[[1]]
-  
+```
+
+Drawing a sample using the Sobol sequence-based balanced acceptance sampling algorithm:
+
+```{r example-bas}
+bas_sample <- bas_sobol(wkb = ashe_wkb, n = 20, seed = 456)
+bas_sample_sf <- sf::st_as_sf(bas_sample, coords = c("lon", "lat"), crs = 4326)
+```
+
+Visualizing the sample.
+Note that the `sobol_index` has gaps: points are drawn in the bounding box and only those inside the polygon are accepted.
+
+```{r plot-bas}
+plot(ashe$`_ogr_geometry_`)
+plot(bas_sample_sf$geometry, add = TRUE)
+coords <- sf::st_coordinates(bas_sample_sf)
+text(
+  x = coords[, 1], 
+  y = coords[, 2], 
+  labels = bas_sample_sf$sobol_index, 
+  pos = 3,
+  cex = 0.8
+)
+```
+
+Alternatively, we can use the Sobol-sequence based GRTS algorithm:
+
+```{r example-grts}
+grts_sample <- grts_sobol(wkb = ashe_wkb, n = 20, seed = 789)
+grts_sample_sf <- sf::st_as_sf(
+  grts_sample, coords = c("lon", "lat"), crs = 4326
+)
+```
+
+Visualizing the sample: note that the `grts_rank` has no gaps because the adapted GRTS algorithm maps the sequence directly inside the geometry's exact area.
+
+```{r plot-grts}
+plot(ashe$`_ogr_geometry_`)
+plot(grts_sample_sf$geometry, add = TRUE)
+coords <- sf::st_coordinates(grts_sample_sf)
+text(
+  x = coords[, 1], 
+  y = coords[, 2], 
+  labels = grts_sample_sf$grts_rank, 
+  pos = 3,
+  cex = 0.8
+)
+
+```
+
+### Sample from the H3 discrete global grid system
+
+We draw a spatially balanced sample with the aid of `h3_grts()` at resolution 7 of the [H3 resolutions](https://h3geo.org/docs/core-library/restable/) system.
+This corresponds to hexagonal areas of approximately 5.16 km².
+The `h3o` package can be used to, among other things, obtain the hexagon centroid or vertices.
+
+```{r example-h3}
 h3_sample <- h3_grts(
   wkb = ashe_wkb,
   n = 20,
@@ -106,7 +160,7 @@ h3_sample$geom_hexagons <- h3_sample$cell |>
 
 We can visualise the selected spatially balanced sample and the H3 cells:
 
-```{r ashe-example}
+```{r plot-example-h3}
 ashe_cells <- h3o::sfc_to_cells(
   ashe$`_ogr_geometry_`,
   resolution = 7,
@@ -119,3 +173,5 @@ plot(ashe_hexagons, add = TRUE)
 plot(h3_sample$geom_hexagons, col = "lightgreen", add = TRUE)
 plot(h3_sample$geom_points, add = TRUE, cex = 0.3)
 ```
+
+
